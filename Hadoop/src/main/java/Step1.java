@@ -28,9 +28,8 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 public class Step1 {
 
     public static class MapperClass1 extends Mapper<LongWritable, Text, Text, Text> {
-        private Text word = new Text();
         private HashSet<String> goldenWords = new HashSet<>();
-
+        
         protected void setup(Context context) throws IOException, InterruptedException {
             // Configure AWS client using instance profile credentials (recommended when
             // running on AWS infrastructure)
@@ -38,7 +37,7 @@ public class Step1 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "mori_verabi"; // Your S3 bucket name
+            String bucketName = "mori-verabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -67,31 +66,27 @@ public class Step1 {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
+            String headWord = fields[0];
 
-            if(fields.length < 3) {
-                System.out.print("wrong format of line -- fields < 3");
+            if(!goldenWords.contains(headWord)) {
                 return;
             }
-            
-            String headWord = fields[0];
+
             String nGram = fields[1];
+            String[] nGramArray = nGram.split(" ");
             String featureCount = fields[2];
-            String[] nGramArray = nGram.split(" "); //Seperate the nGram by space
-            String newValueToWrite = "";
-            
+            String valueToWrite = headWord + "/t" + nGram + "/t" + featureCount;
             for(int i = 1; i < nGramArray.length; i++) { 
                 String[] fieldsOfFeature = nGramArray[i].split("/");
-                String featureWord = stemm(fieldsOfFeature[0]) ;
+                String featureWord = fieldsOfFeature[0];
                 String featureRelation = fieldsOfFeature[2];
                 String feature = featureWord + "-" + featureRelation;
-                if(goldenWords.contains(fieldsOfFeature[0])) {
-                    newValueToWrite +=  feature + ":" + featureCount + "/t";
-                }
+                context.write(new Text(feature), new Text(valueToWrite));
             }
-            context.write(new Text(headWord) , new Text(newValueToWrite));
         }
 
-        public String stemm(String str) {
+
+        public String stem(String str) {
             //*
             //*
             // check how to stemm
@@ -99,137 +94,73 @@ public class Step1 {
             //
             return str; 
         }
-
     }
-
-    public static class ReducerClass1 extends Reducer<Text, IntWritable, Text, Text> {
-        private HashMap<String, Integer> currentWordGrams;
-        private String currentFirstWord = null;
-        
-        private static enum Counters {
-            C0 // Define a custom counter
-        }
-
-
+    
+    
+    
+    public static class ReducerClass1 extends Reducer<Text, Text, Text, Text> {
+       
         @Override
-        public void reduce(Text key, Iterable<IntWritable> values, Context context)
+        public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            String keyString = key.toString().trim();
-            String[] words = keyString.split(" "); // Split the key by space
-            String firstWord = words[0];
 
-            // Write to log file
-            System.out.println("Working on key: " + keyString);
+            String featureKey = key.toString().trim();
+            long count_F_is_f = 0;
+            for(Text value : values) {
+                String stringValue = value.toString();
+                count_F_is_f += Long.parseLong(stringValue.split("/t")[2]);
+            }
 
-            // Initialize or reset HashMap when first word changes
-            if (currentFirstWord == null || !currentFirstWord.equals(firstWord)) {
-                if (currentWordGrams != null) {
-                    System.out.println("Key has been changed from: " + currentFirstWord + " to: " + firstWord
-                            + ". Passing HashMap.");
-
-                    for (Map.Entry<String, Integer> entry : currentWordGrams.entrySet()) {
-                        String ngram = entry.getKey();
-                        System.out.println("Current n-gram in HashMap: " + ngram);
-                        String[] ngramWords = ngram.split(" ");
-                        int n = ngramWords.length;
-                        String w1 = ngramWords[0];
-
-                        String sum = entry.getValue().toString();
-                        if (n == 1) {
-                            context.write(new Text(ngram), new Text(ngram + ":" + sum));
-                        } else if (n == 2) {
-                            Integer w1SumInteger = currentWordGrams.get(w1);
-                            String w1Sum = w1SumInteger != null ? w1SumInteger.toString() : "null";
-                            context.write(new Text(ngram), new Text(w1 + ":" + w1Sum + "\t" + ngram + ":" + sum));
-                        } else if (n == 3) {
-                            String w2 = ngramWords[1];
-                            Integer w1SumInteger = currentWordGrams.get(w1);
-                            String w1Sum = w1SumInteger != null ? w1SumInteger.toString() : "null";
-                            Integer w1w2SumInteger = currentWordGrams.get(w1 + " " + w2);
-                            String w1w2Sum = w1w2SumInteger != null ? w1w2SumInteger.toString() : "null";
-                            context.write(new Text(ngram), new Text(w1 + ":" + w1Sum + "\t" + w1 + " " + w2 + ":"
-                                    + w1w2Sum + "\t" + ngram + ":" + sum));
-                        }
-                    }
+            for(Text value : values) {
+                String stringValue = value.toString();
+                String[] fields = stringValue.split("/t");
+                String originalHeadWordOfFeature = fields[0];
+                String valueToWrite = "";
+                String[] ngramArray = fields[1].split(" ");
+                String featureCount = fields[2];
+                for(String feature : ngramArray) {
+                    String[] fieldsOfFeature = feature.split("/");
+                    if(fieldsOfFeature[0].equals(featureKey))
+                        valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + "/" + count_F_is_f + " ";
+                    else
+                        valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + " ";        
                 }
-                currentFirstWord = firstWord;
-                currentWordGrams = new HashMap<>();
+                context.write(new Text(originalHeadWordOfFeature), new Text(valueToWrite + "/t" + featureCount));
             }
-
-            // Sum up the counts for this n-gram
-            int sum = 0;
-            for (IntWritable value : values) {
-                sum += value.get();
-            }
-            
-            context.getCounter(Counters.C0).increment(sum);
-
-            // Store in HashMap
-            currentWordGrams.put(keyString, sum);
-            System.out.println("Stored in HashMap: <" + keyString + " , " + sum + ">");
         }
-
-        
     }
 
     public static class PartitionerClass1 extends Partitioner<Text, IntWritable> {
         @Override
         public int getPartition(Text key, IntWritable value, int numPartitions) {
-            String ngram = key.toString();
-            String firstWord = ngram.split(" ")[0];
-            return Math.abs(firstWord.hashCode() % numPartitions);
+            return Math.abs(key.hashCode()) % numPartitions;
         }
     }
 
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 1 started!");
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "Step1 - Word Counting");
-        job.setJarByClass(Step1.class);
+        Job job = Job.getInstance(conf, "Step1");
+        job.setJarByClass(Step3.class);
         job.setMapperClass(MapperClass1.class);
         job.setPartitionerClass(PartitionerClass1.class);
-        // job.setSortComparatorClass(NgramComparator.class);
-        // job.setCombinerClass(ReducerClass1.class);
         job.setReducerClass(ReducerClass1.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(IntWritable.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        // For n_grams S3 files.
-        // Note: This is English version and you should change the path to the relevant
-        // one
-        String bucketName = "hashem-itbarach"; // Your S3 bucket name
+        String bucketName = "mori-verabi"; // Your S3 bucket name
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        SequenceFileInputFormat.addInputPath(job,
-                new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
-        SequenceFileInputFormat.addInputPath(job,
-                new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
-        SequenceFileInputFormat.addInputPath(job,
-                new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
+        // SequenceFileInputFormat.addInputPath(job,
+        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
+        // SequenceFileInputFormat.addInputPath(job,
+        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
+        // SequenceFileInputFormat.addInputPath(job,
+        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
-        boolean success = job.waitForCompletion(true);
-        
-        if (success) {
-            // Retrieve and save the counter value after job completion
-            long c0Value = job.getCounters()
-                            .findCounter(ReducerClass1.Counters.C0)
-                            .getValue();
-            System.out.println("Counter C0 Value: " + c0Value);
-
-            // Create an S3 path to save the counter value
-            String counterFilePath = "s3://" + bucketName + "/output/step1/counter_c0.txt";
-
-            // Write the counter value to the file in S3
-            FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
-            Path counterPath = new Path(counterFilePath);
-            FSDataOutputStream out = fs.create(counterPath);
-            out.writeBytes("Counter C0 Value: " + c0Value + "\n");
-            out.close();
-        }
-        System.exit(success ? 0 : 1);
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
-
 }

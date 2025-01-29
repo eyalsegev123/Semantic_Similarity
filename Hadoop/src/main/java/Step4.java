@@ -1,190 +1,248 @@
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-import org.apache.hadoop.fs.FileSystem;
 
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URI;
-
-
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.io.InputStreamReader;
 
 public class Step4 {
+
     public static class MapperClass4 extends Mapper<LongWritable, Text, Text, Text> {
-        private long c0;
         
-        protected void setup(Context context) throws IOException, InterruptedException {
-            // Read c0 from the job configuration passed in Step 4
-            c0 = context.getConfiguration().getLong("c0Value", 1L);  // Default value set to 1L if not found
-            
-            System.out.println("Successfully loaded c0 from job configuration: " + c0);
-        }
-        
-        //ngram format from Google Books:
-        //ngram TAB year TAB match_count TAB page_count TAB volume_count NEWLINE
-        @Override
-        public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-            
-            String[] fields = value.toString().split("\t"); //The key and all the values
-            String ngram = fields[0]; //The key
-            String firstWord = ngram.split(" ")[0];
+        private HashMap<String, HashSet<String>> goldenPairs = new HashMap<>(); // maps every word in the word-relatedness.txt to a set of the words it comes with in pairs
+        long countF;
+        long countL;
 
-            String[] values = new String[fields.length - 1];
-            for(int i = 1; i < fields.length; i++) {
-                values[i-1] = fields[i];
-            }
-            if(values.length < 6)
-                return;
+        public void setup(Context context) throws IOException, InterruptedException {
+            countF = context.getConfiguration().getLong("countF", 0);
+            countL = context.getConfiguration().getLong("countL", 0);
+            // Configure AWS client using instance profile credentials (recommended when
+            // running on AWS infrastructure)
+            AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
+                    .withRegion("us-east-1") // Specify your bucket region
+                    .build();
 
-            Double[] numbersOfValues = new Double[values.length];
-            for(int i = 0; i < numbersOfValues.length; i++) {
-                // If the first word of the 3gram is null it's not an error becaue we don't need it to calculate the probability.
-                String[] currValue = values[i].split(":");
-                if(currValue.length < 2 || ((!(currValue[0].equals(firstWord))) && currValue[1] == "null")) {
-                    return;
+            String bucketName = "mori_verabi"; // Your S3 bucket name
+            String key = "word-relatedness.txt"; // S3 object key for the stopwords file
+
+            try {
+                S3Object s3object = s3Client.getObject(bucketName, key);
+                try (S3ObjectInputStream inputStream = s3object.getObjectContent();
+                        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        String[] fields = line.split("\t");
+                        String word1 = fields[0];
+                        String word2 = fields[1];
+
+                        if(goldenPairs.get(word1) != null){
+                            goldenPairs.get(word1).add(word2);
+                        }
+                        else{
+                            goldenPairs.put(word1 , new HashSet<String>());
+                            goldenPairs.get(word1).add(word2);
+                        }
+
+
+                        if(goldenPairs.get(word2) != null) {
+                            goldenPairs.get(word2).add(word1);
+                        }
+                        else {
+                            goldenPairs.put(word2 , new HashSet<String>());
+                            goldenPairs.get(word2).add(word1);
+                        }
+                        
+                    }
                 }
-                numbersOfValues[i] = Double.parseDouble(currValue[1]);               
+            } catch (Exception e) {
+                // Handle exceptions properly in a production scenario
+                e.printStackTrace();
             }
+        }
+
+
+        @Override
+        public void map(LongWritable key, Text value, Context context)
+                throws IOException, InterruptedException {
+            String line = value.toString();
+            String[] fields = line.split("\t"); // Split by tab
+            if(fields.length == 0){
+                return;
+            }
+
+            String headWord = fields[0];
+            long count_F_is_f = 0;
+            long count_L_is_l = 0;
+
+            HashMap<String, Double> featuresByCount = new HashMap<>();
+        
+            for(int i=1; i<fields.length; i++) {
+                String[] fieldsOfFeature = fields[i].split(":");
+                String featureWord = fieldsOfFeature[0];
+                Double featureCount = Double.parseDouble(fieldsOfFeature[1]);
+                if(featureWord.equals(headWord)) {
+                    featuresByCount.putIfAbsent(featureWord, featureCount);
+                }
+            }
+
+            HashMap<String, Double> prob_by_method_5 = prob_by_method_5(featuresByCount);
+            HashMap<String, Double> prob_by_method_6 = prob_by_method_6(featuresByCount);
+            HashMap<String, Double> prob_by_method_7 = prob_by_method_7(prob_by_method_6);
+            HashMap<String, Double> prob_by_method_8 = prob_by_method_8(featuresByCount);
             
-            double N1 = numbersOfValues[0]; //String N1
-            double N2 = numbersOfValues[2]; //String N2
-            double N3 = numbersOfValues[5]; //String N3
-            double C1 = numbersOfValues[1]; //String C1
-            double C2 = numbersOfValues[4]; //String C2
-            
-            double K2 = ((Math.log(N2+1)/Math.log(2)) + 1 ) / (( Math.log(N2+1) / Math.log(2)) + 2); 
-            double K3 = ((Math.log(N3+1)/Math.log(2)) + 1 ) / (( Math.log(N3+1) / Math.log(2)) + 2); 
-            
-            //Calculate the probability
-            double probabilty = K3*(N3/C2) + (1-K3)*K2*(N2/C1) + (1-K3)*(1-K2)*((double) N1/c0);
-            String prob = String.format("%.5f", probabilty);
-            
-            // Create a new output key and value
-            Text outputKey = new Text(ngram + " " + prob); // Copy the key
-            Text outputValue = new Text(""); // Concatenate probability with original data
-            
-            // Write the key-value pair to the context
-            context.write(outputKey, outputValue);
+
+        }
+
+        protected HashMap<String, Double> prob_by_method_5(HashMap<String, Double> featuresByCount) {
+            return featuresByCount;
+        }
+
+        protected HashMap<String, Double> prob_by_method_6(HashMap<String, Double> featuresByCount) {
+            for(Map.Entry<String, Double> entry : featuresByCount.entrySet()) {
+                featuresByCount.put(entry.getKey(), (double)( (Math.log((entry.getValue()/countL))) / (Math.log(2)) ));
+            }
+            return featuresByCount;
         }
         
-    }
+        protected HashMap<String, Double> prob_by_method_7(HashMap<String, Double> featuresByProbsOfMethod_6) {
+            for(Map.Entry<String, Double> entry : featuresByProbsOfMethod_6.entrySet()) {
+                featuresByProbsOfMethod_6.put(entry.getKey(), (double) (entry.getValue() / countL));
+            }
+            return featuresByProbsOfMethod_6;
+        }
 
+        protected HashMap<String, Double> prob_by_method_8(HashMap<String, Double> featuresByCount) {
+            return featuresByCount;
+        }
+    }
 
     public static class ReducerClass4 extends Reducer<Text, Text, Text, Text> {
         @Override
-        public void reduce(Text key, Iterable<Text> values, Context context) 
+        public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            Text value = values.iterator().next();
-            context.write(key, value);
-        }        
-    }            
-
-    public static class PartitionerClass4 extends Partitioner<Text, Text> { //Get partition wasnt done today
-        @Override
-        public int getPartition(Text key, Text value, int numPartitions) {
-            String[] parts = key.toString().split(" ");
-            int hash = (parts[0] + parts[1]).hashCode(); // Combine `w1` and `w2`
-            return Math.abs(hash) % numPartitions;
+            
+            
         }
+
+        protected double[] dist_by_method_9(String[] featuresArrayByCount) {
+            return 0.0;
+        }
+
+        protected double[] dist_by_method_10() {
+            return 0.0;
+        }
+        
+        protected double[] dist_by_method_11() {
+            return 0.0;
+        }
+
+        protected double[] dist_by_method_13() {
+            return 0.0;
+        }
+        
+        protected double[] dist_by_method_15() {
+            return 0.0;
+        }
+
+        protected double[] dist_by_method_17() {
+            return 0.0;
+        }
+        
     }
 
-    public static class Step4Comparator extends WritableComparator {
-        protected Step4Comparator() {
-            super(Text.class, true);
-        }
-    
+    public static class PartitionerClass4 extends Partitioner<Text, Text> {
         @Override
-        public int compare(WritableComparable w1, WritableComparable w2) {
-            String[] ngram1 = ((Text) w1).toString().split(" ");
-             String[] ngram2 = ((Text) w2).toString().split(" ");
-            
-            // Compare first words
-            int cmp = ngram1[0].compareTo(ngram2[0]);
-            if (cmp != 0) {
-                return cmp;
-            }
-            // Compare second words
-            cmp = ngram1[1].compareTo(ngram2[1]);
-            if (cmp != 0) {
-                return cmp;
-            }
-
-            // Compare probabilities (reverse order for descending)
-            // Assuming probabilities are the last element in the array and are parseable as doubles
-            double prob1 = Double.parseDouble(ngram1[ngram1.length - 1]);
-            double prob2 = Double.parseDouble(ngram2[ngram2.length - 1]);
-
-            return prob1 < prob2 ? 1 : (prob1 > prob2 ? -1 : 0);
-            
+        public int getPartition(Text key, Text value, int numPartitions) {
+            return 1;
+            // change it
         }
     }
 
     public static void main(String[] args) throws Exception {
+        
         System.out.println("[DEBUG] STEP 4 started!");
-
-        // Step 1: Initialize Configuration
+        String bucketName = "mori-verabi";
+        
+        //Step 1: Initialize Configuration
         Configuration conf = new Configuration();
 
         // Step 2: Retrieve the counter value from S3
-        String bucketName = "hashem-itbarach";
-        String counterFilePath = "s3://" + bucketName + "/output/step1/counter_c0.txt";
+        String counterF_FilePath = "s3://" + bucketName + "/output/counters/F.txt";
+        String counterL_FilePath = "s3://" + bucketName + "/output/counters/L.txt";
+        
+        // Step 3: Read the counter value from the file in S3
         FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
-        Path counterPath = new Path(counterFilePath);
+        Path counterPath_F = new Path(counterF_FilePath);
+        Path counterPath_L = new Path(counterL_FilePath);
 
-        // Read the counter value from the file in S3
-        FSDataInputStream in = fs.open(counterPath);
+        FSDataInputStream in = fs.open(counterPath_F);
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
         String line;
-        long c0Value = 0;
-
+        long countF = 0 , countL = 0;
+        
         // Parse the counter value from the file
         while ((line = br.readLine()) != null) {
-            if (line.contains("Counter C0 Value:")) {
+            if (line.contains("Counter F Value:")) {
                 String[] parts = line.split(":");
-                c0Value = Long.parseLong(parts[1].trim());
-                System.out.println("Retrieved Counter C0 Value: " + c0Value);
+                countF = Long.parseLong(parts[1].trim());
             }
         }
 
+        in = fs.open(counterPath_L);
+        br = new BufferedReader(new InputStreamReader(in));
+        
+        // Parse the counter value from the file
+        while ((line = br.readLine()) != null) {
+            if (line.contains("Counter L Value:")) {
+                String[] parts = line.split(":");
+                countL = Long.parseLong(parts[1].trim());
+            }
+        }
         br.close();
         in.close();
 
-        // Step 3: Configure the Job
-        Job job = Job.getInstance(conf, "Step 4 - Processing with c0");
+        Job job = Job.getInstance(conf, "Step4");
         job.setJarByClass(Step4.class);
         job.setMapperClass(MapperClass4.class);
         job.setPartitionerClass(PartitionerClass4.class);
-        job.setSortComparatorClass(Step4Comparator.class);
         job.setReducerClass(ReducerClass4.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        // Pass the counter value to the job (can be done using JobConf or other methods if needed)
-        job.getConfiguration().setLong("c0Value", c0Value);
+        job.getConfiguration().setLong("countF", countF);
+        job.getConfiguration().setLong("countL", countL);
 
-        // Step 4: Set Input/Output Paths
+        // For n_grams S3 files.
+        // Note: This is English version and you should change the path to the relevant
+        // one
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step4"));
-
-        // Step 5: Run the Job
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-}
-
-     
+    }
 }
