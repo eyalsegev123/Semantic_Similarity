@@ -1,3 +1,4 @@
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -32,7 +33,7 @@ import java.io.InputStreamReader;
 public class Step4 {
 
     public static class MapperClass4 extends Mapper<LongWritable, Text, Text, Text> {
-        
+
         private HashMap<String, HashSet<String>> goldenPairs = new HashMap<>(); // maps every word in the word-relatedness.txt to a set of the words it comes with in pairs
         long countF;
         long countL;
@@ -51,31 +52,27 @@ public class Step4 {
 
             try {
                 S3Object s3object = s3Client.getObject(bucketName, key);
-                try (S3ObjectInputStream inputStream = s3object.getObjectContent();
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                try (S3ObjectInputStream inputStream = s3object.getObjectContent(); BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         String[] fields = line.split("\t");
                         String word1 = fields[0];
                         String word2 = fields[1];
 
-                        if(goldenPairs.get(word1) != null){
+                        if (goldenPairs.get(word1) != null) {
                             goldenPairs.get(word1).add(word2);
-                        }
-                        else{
-                            goldenPairs.put(word1 , new HashSet<String>());
+                        } else {
+                            goldenPairs.put(word1, new HashSet<String>());
                             goldenPairs.get(word1).add(word2);
                         }
 
+                        if (goldenPairs.get(word2) != null) {
+                            goldenPairs.get(word2).add(word1);
+                        } else {
+                            goldenPairs.put(word2, new HashSet<String>());
+                            goldenPairs.get(word2).add(word1);
+                        }
 
-                        if(goldenPairs.get(word2) != null) {
-                            goldenPairs.get(word2).add(word1);
-                        }
-                        else {
-                            goldenPairs.put(word2 , new HashSet<String>());
-                            goldenPairs.get(word2).add(word1);
-                        }
-                        
                     }
                 }
             } catch (Exception e) {
@@ -84,7 +81,6 @@ public class Step4 {
             }
         }
 
-    
         //We get here the output of step 3
         //Key: number of line
         //Value: <headWord TAB feature1-POS/count_f_is_F/count_f_with_l .... featureN-POS/count_f_with_l/count_F_is_f   TAB  count_L_is_l>
@@ -93,96 +89,106 @@ public class Step4 {
                 throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
-            if(fields.length == 0){
+            if (fields.length == 0) {
                 return;
             }
             String headWord = fields[0];
             String[] featuresArray = fields[1].split(" ");
             long count_L_is_l = Long.parseLong(fields[2]);
-            
-            HashMap<String, Double[]> featuresByCount = new HashMap<>();
-            
 
-            for(String feature : featuresArray){
+            HashMap<String, Double[]> featuresByCount = new HashMap<>();
+
+            for (String feature : featuresArray) {
                 String[] featureFields = feature.split("/");
                 String featureWordRelation = featureFields[0];
                 double count_f_With_l = Double.parseDouble(featureFields[1]);
                 double count_F_is_f = Double.parseDouble(featureFields[2]);
-                Double[] arrayOfCounts = {count_f_With_l , count_F_is_f};
+                Double[] arrayOfCounts = {count_f_With_l, count_F_is_f};
                 featuresByCount.put(featureWordRelation, arrayOfCounts);
             }
 
             //Now we will need to calculate the values of each cordinate by all the methods (5,6,7,8)
             HashMap<String, Double> measures_by_method_5 = measures_by_method_5(featuresByCount);
             HashMap<String, Double> measures_by_method_6 = measures_by_method_6(measures_by_method_5);
-            HashMap<String, Double> measures_by_method_7 = measures_by_method_7(featuresByCount ,measures_by_method_6);
-            HashMap<String, Double> measures_by_method_8 = measures_by_method_8(featuresByCount , count_L_is_l);
+            HashMap<String, Double> measures_by_method_7 = measures_by_method_7(featuresByCount, measures_by_method_6);
+            HashMap<String, Double> measures_by_method_8 = measures_by_method_8(featuresByCount, count_L_is_l);
 
-            for(Map.Entry<String , HashSet<String>> entry : goldenPairs.entrySet()){
+            for (Map.Entry<String, HashSet<String>> entry : goldenPairs.entrySet()) {
                 String word = entry.getKey();
                 HashSet<String> relatedWords = entry.getValue();
-                for(String relatedWord : relatedWords){
-                    writePairToReducer(word, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7 , measures_by_method_8);
+                for (String relatedWord : relatedWords) {
+                    writePairToReducer(word, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7, measures_by_method_8);
                 }
             }
-            
 
         }
 
-        protected void writePairToReducer(String word, String relatedWord , HashMap<String, Double> m5, 
-                                             HashMap<String, Double> m6 , HashMap<String, Double> m7 , HashMap<String, Double> m8) {
+        protected void writePairToReducer(String word, String relatedWord, HashMap<String, Double> m5,
+                HashMap<String, Double> m6, HashMap<String, Double> m7, HashMap<String, Double> m8) {
             String firstWord = word;
             String secondWord = relatedWord;
-            if(firstWord.compareTo(secondWord) > 0){ // firstWord is lexicofraphically bigger than secondWord   
+            if (firstWord.compareTo(secondWord) > 0) { // firstWord is lexicofraphically bigger than secondWord   
                 String temp = firstWord;
                 firstWord = secondWord;
                 secondWord = temp;
             }
             String keyToWrite = firstWord + "\t" + secondWord;
             String valueToWrite = word + "\t";
-            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
-                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            HashMap<String, String> featuresByMeasures = new HashMap<>();
+
+            for (Map.Entry<String, Double> entry : m5.entrySet()) {
+                String formerValueInHashMap = featuresByMeasures.getOrDefault(entry.getKey(), "");
+                featuresByMeasures.put(entry.getKey(), formerValueInHashMap + entry.getValue().toString() + "/");
             }
-            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
-                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            for (Map.Entry<String, Double> entry : m6.entrySet()) {
+                String formerValueInHashMap = featuresByMeasures.getOrDefault(entry.getKey(), "");
+                featuresByMeasures.put(entry.getKey(), formerValueInHashMap + entry.getValue().toString() + "/");
             }
-            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
-                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            for (Map.Entry<String, Double> entry : m7.entrySet()) {
+                String formerValueInHashMap = featuresByMeasures.getOrDefault(entry.getKey(), "");
+                featuresByMeasures.put(entry.getKey(), formerValueInHashMap + entry.getValue().toString() + "/");
             }
-            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
-                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            for (Map.Entry<String, Double> entry : m8.entrySet()) {
+                String formerValueInHashMap = featuresByMeasures.getOrDefault(entry.getKey(), "");
+                featuresByMeasures.put(entry.getKey(), formerValueInHashMap + entry.getValue().toString() + "/");
             }
+
+            for (Map.Entry<String, String> entry : featuresByMeasures.entrySet()) {
+                valueToWrite+= entry.getKey() + " " + entry.getValue() + "\t";
+            }
+
+            context.write(new Text(keyToWrite) , new Text(valueToWrite));
 
         }
 
         protected HashMap<String, Double> measures_by_method_5(HashMap<String, Double[]> featuresByCount) {
-            HashMap<String, Double> measures_by_method_5 = new HashMap<>(); 
-            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
-                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            HashMap<String, Double> measures_by_method_5 = new HashMap<>();
+            for (Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                measures_by_method_5.put(entry.getKey(), entry.getValue()[0]);
             }
             return measures_by_method_5;
         }
 
         protected HashMap<String, Double> measures_by_method_6(HashMap<String, Double> measures_by_method_5) {
-            HashMap<String, Double> measures_by_method_6 = new HashMap<>(); 
-            for(Map.Entry<String, Double> entry : measures_by_method_5.entrySet()) {
-                measures_by_method_6.put(entry.getKey() , entry.getValue() / this.countL);
+            HashMap<String, Double> measures_by_method_6 = new HashMap<>();
+            for (Map.Entry<String, Double> entry : measures_by_method_5.entrySet()) {
+                measures_by_method_6.put(entry.getKey(), entry.getValue() / this.countL);
             }
             return measures_by_method_6;
         }
-        
-        protected HashMap<String, Double> measures_by_method_7(HashMap<String, Double[]> featuresByCount , HashMap<String, Double> measures_by_method_6) {
-            HashMap<String, Double> measures_by_method_7 = new HashMap<>(); 
-            for(Map.Entry<String, Double> entry : measures_by_method_6.entrySet()) {
+
+        protected HashMap<String, Double> measures_by_method_7(HashMap<String, Double[]> featuresByCount, HashMap<String, Double> measures_by_method_6) {
+            HashMap<String, Double> measures_by_method_7 = new HashMap<>();
+            for (Map.Entry<String, Double> entry : measures_by_method_6.entrySet()) {
                 Double P_of_f = featuresByCount.get(entry.getKey())[1] / (double) this.countF;
-                measures_by_method_7.put(entry.getKey(),  Math.log((entry.getValue()/P_of_f)) / Math.log(2) );
+                measures_by_method_7.put(entry.getKey(), Math.log((entry.getValue() / P_of_f)) / Math.log(2));
             }
             return measures_by_method_7;
         }
 
         protected HashMap<String, Double> measures_by_method_8(HashMap<String, Double[]> featuresByCount, long count_L_is_l) {
             HashMap<String, Double> measures_by_method_8 = new HashMap<>();
-            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+            for (Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
                 Double P_of_f_With_l = entry.getValue()[0] / this.countL;
                 Double P_of_f = entry.getValue()[1] / this.countF;
                 Double P_of_l = (double) count_L_is_l / (double) this.countL;
@@ -194,11 +200,11 @@ public class Step4 {
     }
 
     public static class ReducerClass4 extends Reducer<Text, Text, Text, Text> {
+
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            
-            
+
         }
 
         protected double[] dist_by_method_9(String[] featuresArrayByCount) {
@@ -208,7 +214,7 @@ public class Step4 {
         protected double[] dist_by_method_10() {
             return 0.0;
         }
-        
+
         protected double[] dist_by_method_11() {
             return 0.0;
         }
@@ -216,7 +222,7 @@ public class Step4 {
         protected double[] dist_by_method_13() {
             return 0.0;
         }
-        
+
         protected double[] dist_by_method_15() {
             return 0.0;
         }
@@ -224,10 +230,11 @@ public class Step4 {
         protected double[] dist_by_method_17() {
             return 0.0;
         }
-        
+
     }
 
     public static class PartitionerClass4 extends Partitioner<Text, Text> {
+
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
             return 1;
@@ -236,17 +243,17 @@ public class Step4 {
     }
 
     public static void main(String[] args) throws Exception {
-        
+
         System.out.println("[DEBUG] STEP 4 started!");
         String bucketName = "mori-verabi";
-        
+
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();
 
         // Step 2: Retrieve the counter value from S3
         String counterF_FilePath = "s3://" + bucketName + "/output/counters/F.txt";
         String counterL_FilePath = "s3://" + bucketName + "/output/counters/L.txt";
-        
+
         // Step 3: Read the counter value from the file in S3
         FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
         Path counterPath_F = new Path(counterF_FilePath);
@@ -255,8 +262,8 @@ public class Step4 {
         FSDataInputStream in = fs.open(counterPath_F);
         BufferedReader br = new BufferedReader(new InputStreamReader(in));
         String line;
-        long countF = 0 , countL = 0;
-        
+        long countF = 0, countL = 0;
+
         // Parse the counter value from the file
         while ((line = br.readLine()) != null) {
             if (line.contains("Counter F Value:")) {
@@ -267,7 +274,7 @@ public class Step4 {
 
         in = fs.open(counterPath_L);
         br = new BufferedReader(new InputStreamReader(in));
-        
+
         // Parse the counter value from the file
         while ((line = br.readLine()) != null) {
             if (line.contains("Counter L Value:")) {
