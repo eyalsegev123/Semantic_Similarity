@@ -27,7 +27,7 @@ public class Step3 {
         }
 
         
-        //The format the we get in the input file is: <headWord  TAB nGram (seperated by SPACES)  TAB totalCount>
+        //The format the we get in the input file is: <headWord  TAB features (seperated by SPACES)  TAB totalCount>
         @Override
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
@@ -44,64 +44,79 @@ public class Step3 {
                 return;
             }
             
-            String nGram = fields[1];
-            String featureCount = fields[2];
-            context.getCounter(Counters.COUNT_L).increment(Integer.parseInt(featureCount));
-            String[] nGramArray = nGram.split(" "); //Seperate the nGram by space
+            String features = fields[1];
+            String generalCount = fields[2];
+            context.getCounter(Counters.COUNT_L).increment(Integer.parseInt(generalCount));
+            String[] featureArray = features.split(" "); //Seperate the features by space
             String newValueToWrite = "";
             
-            for(int i = 1; i < nGramArray.length; i++) { 
-                String[] fieldsOfFeature = nGramArray[i].split("/");
+            for(int i = 1; i < featureArray.length; i++) { 
+                String[] fieldsOfFeature = featureArray[i].split("/");
                 String featureWord = fieldsOfFeature[0] ;
-                String featureRelation = fieldsOfFeature[2];
-                String feature = featureWord + "-" + featureRelation;
-                if(goldenWords.contains(fieldsOfFeature[0])) {
-                    newValueToWrite +=  feature + ":" + featureCount + "/t";
-                    context.getCounter(Counters.COUNT_F).increment(Integer.parseInt(featureCount));
-                }
+                String featureRelation = fieldsOfFeature[1];
+                String count_F_is_f = fieldsOfFeature[2];
+                String finalFeatureWithCount = featureWord + "-" + featureRelation + "/" + count_F_is_f;  // featureWord-relation/Count_F_is_f
+                newValueToWrite += finalFeatureWithCount + " ";
+                context.getCounter(Counters.COUNT_F).increment(Integer.parseInt(generalCount));
+                
             }
-            newValueToWrite += headWord + ":" + featureCount; // adding in the end the lexeme itself (cease for example) without "-relation"
-            context.write(new Text(headWord) , new Text(newValueToWrite));
+            //We send:
+            //Key: headWord
+            //Value: <feature1-POS/count_f_is_F....  <TAB>  generalCount>
+            context.write(new Text(headWord) , new Text(newValueToWrite + "\t" + generalCount)); 
         }
-
-        
-
     }
     
-    
-    
+
+    // The reducer will get: Iterable of sentences of headWord
+    // Key: headWord
+    // Value: <feature1-POS/count_f_is_F....  <TAB>  generalCount> , value2 .....
+
+    //We will send to Mapper4: 
+    //Key: headWord
+    //Value: <feature1-POS/count_f_is_F/count_f_With_l ..... > TAB count_L_is_l
     public static class ReducerClass3 extends Reducer<Text, Text, Text, Text> {
-        private HashMap<String, Integer> currentHeadWordFeatures;
-        private String currentHeadWord = null;
-        
+    
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            String keyString = key.toString().trim();
-            String[] features = values.toString().split("/t"); // Split the values by tab
+            String headWord = key.toString().trim();
+            HashMap<String, Integer> currentHeadWordFeaturesToCount = new HashMap<>();
+            long count_L_is_l = 0; // Total count of the headWord
+
+
+            for(Text value : values) {
+                count_L_is_l += Long.parseLong(value.toString().split("\t")[1]);
+            }
+
             
-            if(currentHeadWord != null && currentHeadWord.equals(keyString)) { // Same Word
+            for(Text value : values) {
+                
+                String[] valueFields = value.toString().split("\t");
+                String[] features = valueFields[0].split(" ");
+                int generalCount = Integer.parseInt(valueFields[1]);
+
                 for(String feature : features){
-                    String[] featureFields = feature.split(":");
-                    Integer count = Integer.parseInt(featureFields[1]);
-                    Integer oldValue = currentHeadWordFeatures.getOrDefault(keyString, 0);
-                    currentHeadWordFeatures.put(featureFields[0], oldValue  + count);
+                    String[] featureFields = feature.split("/");
+                    String featureWord = featureFields[0];
+                    String count_F_is_f = featureFields[1];
+                    int current_count_f_with_l = currentHeadWordFeaturesToCount.getOrDefault(featureWord + "\t" + count_F_is_f, 0);
+                    currentHeadWordFeaturesToCount.put(featureWord + "\t" + count_F_is_f , current_count_f_with_l + generalCount); 
                 }
             }
-            // Initialize or reset HashMap when first word changes
-            else if(currentHeadWord == null) { // First word
-                currentHeadWord = keyString;
-                currentHeadWordFeatures = new HashMap<>();
+
+            String newValueToWrite = "";
+            for(Map.Entry<String, Integer> entry : currentHeadWordFeaturesToCount.entrySet()) {
+                String featureWord = entry.getKey().split("\t")[0];
+                String count_F_is_f = entry.getKey().split("\t")[1];
+                String count_f_with_l = entry.getValue().toString();
+
+                newValueToWrite += featureWord + "/" + count_f_with_l + "/" + count_F_is_f + " ";
+                // we add every feature to the value in this type:
+                //word-relation/count(f,l)/count(F=f)
             }
-            else if (!currentHeadWord.equals(keyString)) { // New word 
-                String newValueToWrite = "";
-                for(Map.Entry<String, Integer> entry : currentHeadWordFeatures.entrySet()) {
-                    newValueToWrite += entry.getKey() + ":" + entry.getValue().toString() + "/t";
-                }
-                context.write(new Text(currentHeadWord), new Text(newValueToWrite));
-                currentHeadWord = keyString;
-                currentHeadWordFeatures = new HashMap<>();     
-            }   
+            context.write(new Text(headWord) , new Text(newValueToWrite + "\t" + count_L_is_l));
+
         }
     }
 
@@ -121,24 +136,19 @@ public class Step3 {
         job.setPartitionerClass(PartitionerClass3.class);
         job.setReducerClass(ReducerClass3.class);
         job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(IntWritable.class);
+        job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
         String bucketName = "mori-verabi"; // Your S3 bucket name
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        // SequenceFileInputFormat.addInputPath(job,
-        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
-        // SequenceFileInputFormat.addInputPath(job,
-        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
-        // SequenceFileInputFormat.addInputPath(job,
-        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
+        SequenceFileInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         
         boolean success = job.waitForCompletion(true);
         
-        if (success) {
+        if (success) { // We need it in next phases?????!??!?!??!??!?!?
             // Retrieve and save the counter value after job completion
             long countF = job.getCounters()
                             .findCounter(MapperClass3.Counters.COUNT_F)

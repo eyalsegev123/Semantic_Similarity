@@ -1,5 +1,3 @@
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
@@ -12,12 +10,9 @@ import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
 import com.amazonaws.services.s3.AmazonS3;
@@ -38,7 +33,7 @@ public class Step1 {
                     .build();
 
             String bucketName = "mori-verabi"; // Your S3 bucket name
-            String key = "word-relatedness.txt"; // S3 object key for the stopwords file
+            String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {
                 S3Object s3object = s3Client.getObject(bucketName, key);
@@ -74,10 +69,22 @@ public class Step1 {
 
             String nGram = fields[1];
             String[] nGramArray = nGram.split(" ");
+
+            String[] nGramArrayWithOutHeadWord = new String[nGramArray.length - 1];
+            int index_to_insert = 0;
+            for(int i = 0; i < nGramArray.length; i++) {
+                String featureWord = nGramArray[i].split("/")[0];
+                if(featureWord.equals(headWord)){
+                    continue;
+                }
+                nGramArrayWithOutHeadWord[index_to_insert] = nGramArray[i];
+                index_to_insert++;
+            }
+
             String featureCount = fields[2];
-            String valueToWrite = headWord + "/t" + nGram + "/t" + featureCount;
-            for(int i = 1; i < nGramArray.length; i++) { 
-                String[] fieldsOfFeature = nGramArray[i].split("/");
+            String valueToWrite = headWord + "\t" + nGramArrayWithOutHeadWord + "\t" + featureCount;
+            for(int i = 0; i < nGramArrayWithOutHeadWord.length; i++) { 
+                String[] fieldsOfFeature = nGramArrayWithOutHeadWord[i].split("/");
                 String featureWord = fieldsOfFeature[0];
                 String featureRelation = fieldsOfFeature[2];
                 String feature = featureWord + "-" + featureRelation;
@@ -99,33 +106,34 @@ public class Step1 {
     
     
     public static class ReducerClass1 extends Reducer<Text, Text, Text, Text> {
-       
+    
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
 
             String featureKey = key.toString().trim();
             long count_F_is_f = 0;
+            
             for(Text value : values) {
                 String stringValue = value.toString();
-                count_F_is_f += Long.parseLong(stringValue.split("/t")[2]);
+                count_F_is_f += Long.parseLong(stringValue.split("\t")[2]);
             }
 
             for(Text value : values) {
                 String stringValue = value.toString();
-                String[] fields = stringValue.split("/t");
+                String[] fields = stringValue.split("\t");
                 String originalHeadWordOfFeature = fields[0];
                 String valueToWrite = "";
                 String[] ngramArray = fields[1].split(" ");
                 String featureCount = fields[2];
                 for(String feature : ngramArray) {
-                    String[] fieldsOfFeature = feature.split("/");
+                    String[] fieldsOfFeature = feature.split("/"); //Splitting the feature by "/"
                     if(fieldsOfFeature[0].equals(featureKey))
                         valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + "/" + count_F_is_f + " ";
                     else
                         valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + " ";        
                 }
-                context.write(new Text(originalHeadWordOfFeature), new Text(valueToWrite + "/t" + featureCount));
+                context.write(new Text(originalHeadWordOfFeature), new Text(valueToWrite + "\t" + featureCount));
             }
         }
     }
@@ -141,12 +149,12 @@ public class Step1 {
         System.out.println("[DEBUG] STEP 1 started!");
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "Step1");
-        job.setJarByClass(Step3.class);
+        job.setJarByClass(Step1.class);
         job.setMapperClass(MapperClass1.class);
         job.setPartitionerClass(PartitionerClass1.class);
         job.setReducerClass(ReducerClass1.class);
         job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(IntWritable.class);
+        job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 

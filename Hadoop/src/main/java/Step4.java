@@ -8,6 +8,8 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.yarn.webapp.hamlet2.Hamlet.P;
+import org.xbill.DNS.tools.primary;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -82,7 +84,10 @@ public class Step4 {
             }
         }
 
-
+    
+        //We get here the output of step 3
+        //Key: number of line
+        //Value: <headWord TAB feature1-POS/count_f_is_F/count_f_with_l .... featureN-POS/count_f_with_l/count_F_is_f   TAB  count_L_is_l>
         @Override
         public void map(LongWritable key, Text value, Context context)
                 throws IOException, InterruptedException {
@@ -91,50 +96,100 @@ public class Step4 {
             if(fields.length == 0){
                 return;
             }
-
             String headWord = fields[0];
-            long count_F_is_f = 0;
-            long count_L_is_l = 0;
+            String[] featuresArray = fields[1].split(" ");
+            long count_L_is_l = Long.parseLong(fields[2]);
+            
+            HashMap<String, Double[]> featuresByCount = new HashMap<>();
+            
 
-            HashMap<String, Double> featuresByCount = new HashMap<>();
-        
-            for(int i=1; i<fields.length; i++) {
-                String[] fieldsOfFeature = fields[i].split(":");
-                String featureWord = fieldsOfFeature[0];
-                Double featureCount = Double.parseDouble(fieldsOfFeature[1]);
-                if(featureWord.equals(headWord)) {
-                    featuresByCount.putIfAbsent(featureWord, featureCount);
-                }
+            for(String feature : featuresArray){
+                String[] featureFields = feature.split("/");
+                String featureWordRelation = featureFields[0];
+                double count_f_With_l = Double.parseDouble(featureFields[1]);
+                double count_F_is_f = Double.parseDouble(featureFields[2]);
+                Double[] arrayOfCounts = {count_f_With_l , count_F_is_f};
+                featuresByCount.put(featureWordRelation, arrayOfCounts);
             }
 
-            HashMap<String, Double> prob_by_method_5 = prob_by_method_5(featuresByCount);
-            HashMap<String, Double> prob_by_method_6 = prob_by_method_6(featuresByCount);
-            HashMap<String, Double> prob_by_method_7 = prob_by_method_7(prob_by_method_6);
-            HashMap<String, Double> prob_by_method_8 = prob_by_method_8(featuresByCount);
+            //Now we will need to calculate the values of each cordinate by all the methods (5,6,7,8)
+            HashMap<String, Double> measures_by_method_5 = measures_by_method_5(featuresByCount);
+            HashMap<String, Double> measures_by_method_6 = measures_by_method_6(measures_by_method_5);
+            HashMap<String, Double> measures_by_method_7 = measures_by_method_7(featuresByCount ,measures_by_method_6);
+            HashMap<String, Double> measures_by_method_8 = measures_by_method_8(featuresByCount , count_L_is_l);
+
+            for(Map.Entry<String , HashSet<String>> entry : goldenPairs.entrySet()){
+                String word = entry.getKey();
+                HashSet<String> relatedWords = entry.getValue();
+                for(String relatedWord : relatedWords){
+                    writePairToReducer(word, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7 , measures_by_method_8);
+                }
+            }
             
 
         }
 
-        protected HashMap<String, Double> prob_by_method_5(HashMap<String, Double> featuresByCount) {
-            return featuresByCount;
+        protected void writePairToReducer(String word, String relatedWord , HashMap<String, Double> m5, 
+                                             HashMap<String, Double> m6 , HashMap<String, Double> m7 , HashMap<String, Double> m8) {
+            String firstWord = word;
+            String secondWord = relatedWord;
+            if(firstWord.compareTo(secondWord) > 0){ // firstWord is lexicofraphically bigger than secondWord   
+                String temp = firstWord;
+                firstWord = secondWord;
+                secondWord = temp;
+            }
+            String keyToWrite = firstWord + "\t" + secondWord;
+            String valueToWrite = word + "\t";
+            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            }
+            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            }
+            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            }
+            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
+            }
+
         }
 
-        protected HashMap<String, Double> prob_by_method_6(HashMap<String, Double> featuresByCount) {
-            for(Map.Entry<String, Double> entry : featuresByCount.entrySet()) {
-                featuresByCount.put(entry.getKey(), (double)( (Math.log((entry.getValue()/countL))) / (Math.log(2)) ));
+        protected HashMap<String, Double> measures_by_method_5(HashMap<String, Double[]> featuresByCount) {
+            HashMap<String, Double> measures_by_method_5 = new HashMap<>(); 
+            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                measures_by_method_5.put(entry.getKey() , entry.getValue()[0]);
             }
-            return featuresByCount;
+            return measures_by_method_5;
+        }
+
+        protected HashMap<String, Double> measures_by_method_6(HashMap<String, Double> measures_by_method_5) {
+            HashMap<String, Double> measures_by_method_6 = new HashMap<>(); 
+            for(Map.Entry<String, Double> entry : measures_by_method_5.entrySet()) {
+                measures_by_method_6.put(entry.getKey() , entry.getValue() / this.countL);
+            }
+            return measures_by_method_6;
         }
         
-        protected HashMap<String, Double> prob_by_method_7(HashMap<String, Double> featuresByProbsOfMethod_6) {
-            for(Map.Entry<String, Double> entry : featuresByProbsOfMethod_6.entrySet()) {
-                featuresByProbsOfMethod_6.put(entry.getKey(), (double) (entry.getValue() / countL));
+        protected HashMap<String, Double> measures_by_method_7(HashMap<String, Double[]> featuresByCount , HashMap<String, Double> measures_by_method_6) {
+            HashMap<String, Double> measures_by_method_7 = new HashMap<>(); 
+            for(Map.Entry<String, Double> entry : measures_by_method_6.entrySet()) {
+                Double P_of_f = featuresByCount.get(entry.getKey())[1] / (double) this.countF;
+                measures_by_method_7.put(entry.getKey(),  Math.log((entry.getValue()/P_of_f)) / Math.log(2) );
             }
-            return featuresByProbsOfMethod_6;
+            return measures_by_method_7;
         }
 
-        protected HashMap<String, Double> prob_by_method_8(HashMap<String, Double> featuresByCount) {
-            return featuresByCount;
+        protected HashMap<String, Double> measures_by_method_8(HashMap<String, Double[]> featuresByCount, long count_L_is_l) {
+            HashMap<String, Double> measures_by_method_8 = new HashMap<>();
+            for(Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
+                Double P_of_f_With_l = entry.getValue()[0] / this.countL;
+                Double P_of_f = entry.getValue()[1] / this.countF;
+                Double P_of_l = (double) count_L_is_l / (double) this.countL;
+                Double measure = (P_of_f_With_l - P_of_f * P_of_l) / Math.sqrt(P_of_l * P_of_f);
+                measures_by_method_8.put(entry.getKey(), measure);
+            }
+            return measures_by_method_8;
         }
     }
 
