@@ -1,5 +1,3 @@
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -13,7 +11,6 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.net.URI;
 import org.apache.hadoop.conf.Configuration;
 
 //Calculating count_L, count_F, count(l,f)

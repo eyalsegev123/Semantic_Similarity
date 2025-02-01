@@ -24,8 +24,6 @@ public class Step1 {
 
     public static class MapperClass1 extends Mapper<LongWritable, Text, Text, Text> {
         private HashSet<String> goldenWords = new HashSet<>(); //Stemmed golden words
-        Stemmer stemmer = new Stemmer();
-        
         protected void setup(Context context) throws IOException, InterruptedException {
             // Configure AWS client using instance profile credentials (recommended when
             // running on AWS infrastructure)

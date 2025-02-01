@@ -29,10 +29,16 @@ import java.io.InputStreamReader;
 public class Step4 {
 
     public static class MapperClass4 extends Mapper<LongWritable, Text, Text, Text> {
-
         private HashMap<String, HashSet<String>> goldenPairs = new HashMap<>(); // maps every word in the word-relatedness.txt to a set of the words it comes with in pairs
         long countF;
         long countL;
+
+        public String stem(String word) {
+            Stemmer stemmer = new Stemmer();
+            stemmer.add(word.toCharArray(), word.length()); // Add the full word
+            stemmer.stem(); // Perform stemming
+            return stemmer.toString();
+        }
 
         public void setup(Context context) throws IOException, InterruptedException {
             countF = context.getConfiguration().getLong("countF", 0);
@@ -52,8 +58,8 @@ public class Step4 {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         String[] fields = line.split("\t");
-                        String word1 = fields[0];
-                        String word2 = fields[1];
+                        String word1 = stem(fields[0]);
+                        String word2 = stem(fields[1]);
 
                         if (goldenPairs.get(word1) != null) {
                             goldenPairs.get(word1).add(word2);
@@ -88,7 +94,6 @@ public class Step4 {
             if (fields.length == 0) {
                 return;
             }
-            String headWord = fields[0];
             String[] featuresArray = fields[1].split(" ");
             long count_L_is_l = Long.parseLong(fields[2]);
 
