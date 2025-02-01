@@ -62,7 +62,7 @@ public class Step1 {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
-            String headWord = fields[0];
+            String headWord = stem(fields[0]);
 
             if(!goldenWords.contains(headWord)) {
                 return;

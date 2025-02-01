@@ -15,7 +15,7 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
-    public static String bucketName = "mori-verabi";
+    public static String bucketName = "myteacherandrabi";
 
     public static int numberOfInstances = 7;
 
