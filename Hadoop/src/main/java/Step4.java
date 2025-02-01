@@ -9,24 +9,19 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-import org.apache.hadoop.yarn.webapp.hamlet2.Hamlet.P;
-import org.xbill.DNS.tools.primary;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.io.InputStreamReader;
 
@@ -117,13 +112,14 @@ public class Step4 {
                 String word = entry.getKey();
                 HashSet<String> relatedWords = entry.getValue();
                 for (String relatedWord : relatedWords) {
-                    writePairToReducer(word, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7, measures_by_method_8);
+                    String[] key_value = makePairToReducer(word, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7, measures_by_method_8);
+                    context.write(new Text(key_value[0]) , new Text(key_value[1]));
                 }
             }
 
         }
 
-        protected void writePairToReducer(String word, String relatedWord, HashMap<String, Double> m5,
+        protected String[] makePairToReducer(String word, String relatedWord, HashMap<String, Double> m5,
                 HashMap<String, Double> m6, HashMap<String, Double> m7, HashMap<String, Double> m8) {
             String firstWord = word;
             String secondWord = relatedWord;
@@ -132,8 +128,8 @@ public class Step4 {
                 firstWord = secondWord;
                 secondWord = temp;
             }
-            String keyToWrite = firstWord + "\t" + secondWord;
-            String valueToWrite = word + "\t";
+            String keyToWrite = firstWord + "\t" + secondWord; //we want every pair to get the same reducer so the key will be arranged alphabeticly
+            String valueToWrite = "";
             HashMap<String, String> featuresByMeasures = new HashMap<>();
 
             for (Map.Entry<String, Double> entry : m5.entrySet()) {
@@ -150,14 +146,18 @@ public class Step4 {
             }
             for (Map.Entry<String, Double> entry : m8.entrySet()) {
                 String formerValueInHashMap = featuresByMeasures.getOrDefault(entry.getKey(), "");
-                featuresByMeasures.put(entry.getKey(), formerValueInHashMap + entry.getValue().toString() + "/");
+                featuresByMeasures.put(entry.getKey(), formerValueInHashMap + entry.getValue().toString());
             }
+
+            // now in featuresByMeasures we have every feature of word like this:
+            // key: feature-relation value: m5/m6/m7/m8 
 
             for (Map.Entry<String, String> entry : featuresByMeasures.entrySet()) {
                 valueToWrite+= entry.getKey() + " " + entry.getValue() + "\t";
             }
 
-            context.write(new Text(keyToWrite) , new Text(valueToWrite));
+            String[] ans = {keyToWrite , valueToWrite};
+            return ans;
 
         }
 
@@ -204,31 +204,202 @@ public class Step4 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
+            String[] valuesString = new String[2];
+            int index = 0;
+            for(Text value : values) {
+                if(index >= 2)
+                    break;
+                valuesString[index] = value.toString();
+                index++;
+            }
+            int numberOfFeaturesInFirst = valuesString[0].split("\t").length; 
+            int numberOfFeaturesInSecond =  valuesString[1].split("\t").length;
+            String[][] vectors = new String[2][Math.max(numberOfFeaturesInFirst , numberOfFeaturesInSecond)];
+            insertCommonAndNotCommonFeatures(vectors , valuesString);
+            
+            //Here we get the distance between each l1 and l2 
+            double[] dist_by_method_9 = dist_by_method_9(vectors);
+            double[] dist_by_method_10 = dist_by_method_10(vectors);
+            double[] dist_by_method_11 = dist_by_method_11(vectors);
+            double[] dist_by_method_13 = dist_by_method_13(vectors);
+            double[] dist_by_method_15 = dist_by_method_15(vectors);
+            double[] dist_by_method_17 = dist_by_method_17(vectors);
 
+            String final_24_vector = "";
+            for(double dist : dist_by_method_9)
+                final_24_vector += dist + "/";
+            
+            for(double dist : dist_by_method_10) 
+                final_24_vector += dist + "/";
+            
+            for(double dist : dist_by_method_11)
+                final_24_vector += dist + "/";
+            
+            for(double dist : dist_by_method_13)
+                final_24_vector += dist + "/";
+            
+            for(double dist : dist_by_method_15)
+                final_24_vector += dist + "/";
+            
+            for(double dist : dist_by_method_17)
+                final_24_vector += dist + "/";
+
+            context.write(key , new Text(final_24_vector));
+            
         }
 
-        protected double[] dist_by_method_9(String[] featuresArrayByCount) {
-            return 0.0;
+        protected void insertCommonAndNotCommonFeatures(String[][] vectors , String[] values) {
+            
+            //we will start with the common features
+            HashMap<String , String> featuresOfFirstWord = new HashMap<>();
+            HashMap<String , String> featuresOfSecondWord = new HashMap<>();
+            String[] word1_features_array = values[0].split("\t");
+            String[] word2_features_array = values[1].split("\t");
+
+            for(String feature : word1_features_array) {
+                String featureWordAndRelation = feature.split(" ")[0]; 
+                String featureMeasures = feature.split(" ")[1];
+                featuresOfFirstWord.put(featureWordAndRelation , featureMeasures);
+            }
+            for(String feature : word2_features_array) {
+                String featureWordAndRelation = feature.split(" ")[0]; 
+                String featureMeasures = feature.split(" ")[1];
+                featuresOfSecondWord.put(featureWordAndRelation , featureMeasures);
+            }
+            
+            int indexToInsert = 0;
+            for (Map.Entry<String, String> entry : featuresOfFirstWord.entrySet()) {
+                if(featuresOfSecondWord.get(entry.getKey()) != null) {
+                    vectors[0][indexToInsert] = entry.getValue();
+                    vectors[1][indexToInsert] = featuresOfSecondWord.get(entry.getKey());
+                    featuresOfFirstWord.remove(entry.getKey());
+                    featuresOfSecondWord.remove(entry.getKey());
+                    indexToInsert++;
+                }
+            }
+            for (Map.Entry<String, String> entry : featuresOfFirstWord.entrySet()) {
+                    vectors[0][indexToInsert] = entry.getValue();
+                    vectors[1][indexToInsert] = "0/0/0/0";
+                    indexToInsert++;
+            }
+            for (Map.Entry<String, String> entry : featuresOfSecondWord.entrySet()) {
+                    vectors[0][indexToInsert] = "0/0/0/0";
+                    vectors[1][indexToInsert] = entry.getValue();
+                    indexToInsert++;
+            }
         }
 
-        protected double[] dist_by_method_10() {
-            return 0.0;
+        protected double[] dist_by_method_9(String[][] vectors) {
+            double[] ans = new double[4];
+            for(int i=0; i<ans.length; i++) {
+                double sum = 0.0;
+                for(int j=0; j<vectors[0].length; j++) {
+                    double firstWordCoordinate = Double.parseDouble(vectors[0][j].split("/")[i]); //we want the i-th measure method
+                    double secondWordCoordinate = Double.parseDouble(vectors[1][j].split("/")[i]); //we want the i-th measure method
+                    sum += Math.abs(firstWordCoordinate - secondWordCoordinate);
+                }
+                ans[i] = sum;
+            }
+            return ans;
         }
 
-        protected double[] dist_by_method_11() {
-            return 0.0;
+        protected double[] dist_by_method_10(String[][] vectors) {
+            double[] ans = new double[4];
+            for(int i=0; i<ans.length; i++) {
+                double sum = 0.0;
+                for(int j=0; j<vectors[0].length; j++) {
+                    double firstWordCoordinate = Double.parseDouble(vectors[0][j].split("/")[i]); //we want the i-th measure method
+                    double secondWordCoordinate = Double.parseDouble(vectors[1][j].split("/")[i]); //we want the i-th measure method
+                    double squaredDifference = Math.pow((firstWordCoordinate - secondWordCoordinate) , 2);
+                    sum += squaredDifference;
+                }
+                ans[i] = Math.sqrt(sum);
+            }
+            return ans;
         }
 
-        protected double[] dist_by_method_13() {
-            return 0.0;
+        protected double[] dist_by_method_11(String[][] vectors) {
+            double[] ans = new double[4];
+            for(int i=0; i<ans.length; i++) {
+                double sumOfProducts = 0.0;
+                double sumOfSquaredVector1 = 0.0;
+                double sumOfSquaredVector2 = 0.0;
+                for(int j=0; j<vectors[0].length; j++) {
+                    double firstWordCoordinate = Double.parseDouble(vectors[0][j].split("/")[i]); //we want the i-th measure method
+                    double secondWordCoordinate = Double.parseDouble(vectors[1][j].split("/")[i]); //we want the i-th measure method
+                    sumOfProducts += firstWordCoordinate * secondWordCoordinate;
+                    sumOfSquaredVector1 += Math.pow(firstWordCoordinate , 2);
+                    sumOfSquaredVector2 += Math.pow(secondWordCoordinate , 2);
+                }
+                ans[i] = sumOfProducts / ( Math.sqrt(sumOfSquaredVector1) * Math.sqrt(sumOfSquaredVector2) );
+            }
+            return ans;
         }
 
-        protected double[] dist_by_method_15() {
-            return 0.0;
+        protected double[] dist_by_method_13(String[][] vectors) {
+            double[] ans = new double[4];
+            for(int i=0; i<ans.length; i++) {
+                double sumOfMin = 0.0;
+                double sumOfMax = 0.0;
+                for(int j=0; j<vectors[0].length; j++) {
+                    double firstWordCoordinate = Double.parseDouble(vectors[0][j].split("/")[i]); //we want the i-th measure method
+                    double secondWordCoordinate = Double.parseDouble(vectors[1][j].split("/")[i]); //we want the i-th measure method
+                    sumOfMin += Math.min(firstWordCoordinate , secondWordCoordinate);
+                    sumOfMax += Math.max(firstWordCoordinate , secondWordCoordinate);
+                }
+                ans[i] = sumOfMin / sumOfMax;
+            }
+            return ans;
         }
 
-        protected double[] dist_by_method_17() {
-            return 0.0;
+        protected double[] dist_by_method_15(String[][] vectors) {
+            double[] ans = new double[4];
+            for(int i=0; i<ans.length; i++) {
+                double sumOfMin = 0.0;
+                double sumOfVectorsCoordinates = 0.0;
+                for(int j=0; j<vectors[0].length; j++) {
+                    double firstWordCoordinate = Double.parseDouble(vectors[0][j].split("/")[i]); //we want the i-th measure method
+                    double secondWordCoordinate = Double.parseDouble(vectors[1][j].split("/")[i]); //we want the i-th measure method
+                    sumOfMin += Math.min(firstWordCoordinate , secondWordCoordinate);
+                    sumOfVectorsCoordinates += firstWordCoordinate + secondWordCoordinate;
+                }
+                ans[i] = (2 * sumOfMin) / sumOfVectorsCoordinates;
+            }
+            return ans;
+        }
+
+        protected double[] dist_by_method_17(String[][] vectors) {
+            
+            String[] l1 = vectors[0];
+            String[] l2 = vectors[1];
+            Double[][] M = new Double[l1.length][4];
+            
+            for(int j=0; j<l1.length; j++) {
+                String[] l1Measures = l1[j].split("/");
+                String[] l2Measures = l2[j].split("/");
+                for(int k = 0; k<4; k++){
+                    Double l1Cord = Double.parseDouble(l1Measures[k]);
+                    Double l2Cord = Double.parseDouble(l2Measures[k]);
+                    M[j][k] = (l1Cord + l2Cord) / 2;
+                }
+            }   
+
+            double[] ans = new double[4];
+            for(int i=0; i<ans.length; i++) {
+                ans[i] = ( KL_divergence(l1, M, i) + KL_divergence(l2, M, i) ) / 2;
+            }
+            
+            return ans;
+        }
+
+        protected double KL_divergence(String[] L , Double[][] M, int coordinate_index){
+            double sum = 0.0;
+            for(int i=0; i<L.length; i++) {
+                double L_Coordinate = Double.parseDouble(L[i].split("/")[coordinate_index]);
+                double M_Coordinate = M[i][coordinate_index]; 
+                sum += L_Coordinate * ((Math.log(L_Coordinate/M_Coordinate)) / Math.log(2));
+            }
+            return sum;
         }
 
     }
@@ -237,8 +408,7 @@ public class Step4 {
 
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
-            return 1;
-            // change it
+            return Math.abs(key.hashCode()) % numPartitions;
         }
     }
 
