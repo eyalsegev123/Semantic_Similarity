@@ -1,7 +1,6 @@
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -13,15 +12,14 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;
 
+//Calculating count_L, count_F, count(l,f)
 public class Step3 {
 
     public static class MapperClass3 extends Mapper<LongWritable, Text, Text, Text> {
-        private HashSet<String> goldenWords = new HashSet<>();
         private static enum Counters {
             COUNT_F, COUNT_L;
         }
@@ -39,26 +37,26 @@ public class Step3 {
             }
 
             String headWord = fields[0];
-
-            if(!goldenWords.contains(headWord)) {
-                return;
-            }
-            
             String features = fields[1];
             String generalCount = fields[2];
+
+            //Calculating count_L
             context.getCounter(Counters.COUNT_L).increment(Integer.parseInt(generalCount));
-            String[] featureArray = features.split(" "); //Seperate the features by space
+            
+            String[] featureArray = features.split(" "); //Seperate the features by spaces
             String newValueToWrite = "";
             
-            for(int i = 1; i < featureArray.length; i++) { 
+            for(int i = 1; i < featureArray.length; i++) {
                 String[] fieldsOfFeature = featureArray[i].split("/");
                 String featureWord = fieldsOfFeature[0] ;
                 String featureRelation = fieldsOfFeature[1];
                 String count_F_is_f = fieldsOfFeature[2];
-                String finalFeatureWithCount = featureWord + "-" + featureRelation + "/" + count_F_is_f;  // featureWord-relation/Count_F_is_f
+                
+                //turn the feature structure to:  featureWord-relation/Count_F_is_f
+                String finalFeatureWithCount = featureWord + "-" + featureRelation + "/" + count_F_is_f;
+
                 newValueToWrite += finalFeatureWithCount + " ";
                 context.getCounter(Counters.COUNT_F).increment(Integer.parseInt(generalCount));
-                
             }
             //We send:
             //Key: headWord
@@ -70,7 +68,7 @@ public class Step3 {
 
     // The reducer will get: Iterable of sentences of headWord
     // Key: headWord
-    // Value: <feature1-POS/count_f_is_F....  <TAB>  generalCount> , value2 .....
+    // An Iterable of Values: <feature1-POS/count_f_is_F....  <TAB>  generalCount> , value2 .....
 
     //We will send to Mapper4: 
     //Key: headWord
@@ -89,7 +87,7 @@ public class Step3 {
                 count_L_is_l += Long.parseLong(value.toString().split("\t")[1]);
             }
 
-            
+            //Summing the appearences of some f with l from every sentence of l
             for(Text value : values) {
                 
                 String[] valueFields = value.toString().split("\t");
@@ -98,20 +96,20 @@ public class Step3 {
 
                 for(String feature : features){
                     String[] featureFields = feature.split("/");
-                    String featureWord = featureFields[0];
+                    String featureWordWithRelation = featureFields[0];
                     String count_F_is_f = featureFields[1];
-                    int current_count_f_with_l = currentHeadWordFeaturesToCount.getOrDefault(featureWord + "\t" + count_F_is_f, 0);
-                    currentHeadWordFeaturesToCount.put(featureWord + "\t" + count_F_is_f , current_count_f_with_l + generalCount); 
+                    int current_count_f_with_l = currentHeadWordFeaturesToCount.getOrDefault(featureWordWithRelation + "\t" + count_F_is_f, 0);
+                    currentHeadWordFeaturesToCount.put(featureWordWithRelation + "\t" + count_F_is_f , current_count_f_with_l + generalCount); 
                 }
             }
 
             String newValueToWrite = "";
             for(Map.Entry<String, Integer> entry : currentHeadWordFeaturesToCount.entrySet()) {
-                String featureWord = entry.getKey().split("\t")[0];
+                String featureWordWithRelation = entry.getKey().split("\t")[0];
                 String count_F_is_f = entry.getKey().split("\t")[1];
                 String count_f_with_l = entry.getValue().toString();
 
-                newValueToWrite += featureWord + "/" + count_f_with_l + "/" + count_F_is_f + " ";
+                newValueToWrite += featureWordWithRelation + "/" + count_f_with_l + "/" + count_F_is_f + " ";
                 // we add every feature to the value in this type:
                 //word-relation/count(f,l)/count(F=f)
             }
@@ -122,7 +120,7 @@ public class Step3 {
 
     public static class PartitionerClass3 extends Partitioner<Text, Text> {
         @Override
-        public int getPartition(Text key, IntWritable value, int numPartitions) {
+        public int getPartition(Text key, Text value, int numPartitions) {
             return Math.abs(key.hashCode()) % numPartitions;
         }
     }
@@ -140,41 +138,12 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "mori-verabi"; // Your S3 bucket name
+        String bucketName = "myteacherandrabi"; // Your S3 bucket name
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         SequenceFileInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         
-        boolean success = job.waitForCompletion(true);
-        
-        if (success) { // We need it in next phases?????!??!?!??!??!?!?
-            // Retrieve and save the counter value after job completion
-            long countF = job.getCounters()
-                            .findCounter(MapperClass3.Counters.COUNT_F)
-                            .getValue();
-
-            long countL = job.getCounters()
-                            .findCounter(MapperClass3.Counters.COUNT_L)
-                            .getValue();
-
-            // Create an S3 path to save the counter value
-            String counterF_FilePath = "s3://" + bucketName + "/output/counters/F.txt";
-            String counterL_FilePath = "s3://" + bucketName + "/output/counters/L.txt";
-
-            // Write the counter value to the file in S3
-            FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
-            Path counterPath = new Path(counterF_FilePath);
-
-            FSDataOutputStream outF = fs.create(counterPath);
-            outF.writeBytes("Counter F Value:" + countF + "\n");
-            outF.close();
-
-            counterPath = new Path(counterL_FilePath);
-            FSDataOutputStream outL = fs.create(counterPath);
-            outL.writeBytes("Counter L Value:" + countL + "\n");
-            outL.close();
-        }
-        System.exit(success ? 0 : 1);
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }

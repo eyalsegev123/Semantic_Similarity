@@ -1,5 +1,4 @@
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -14,7 +13,7 @@ import java.io.IOException;
 import java.util.HashSet;
 
 
-
+//Reunite the updated features with their original keys 
 public class Step2 {
 
     public static class MapperClass2 extends Mapper<LongWritable, Text, Text, Text> {
@@ -29,11 +28,13 @@ public class Step2 {
             String[] featureArray = fields[1].split(" ");
             String count = fields[2];
             String sentenceOfHeadWord = "";
+            //Extracting sentence of head word
             for(int i=0; i<featureArray.length; i++) {
                 String wordOfFeature = featureArray[i].split("/")[0];
                 sentenceOfHeadWord += wordOfFeature + " ";
             } 
 
+            //we will send the key: head-word TAB sentenceOfHeadWord --> this way, in the reducer, we will connect between the count_F_is_f of each feature of the sentence.
             String featuresAndCount = fields[1] + "\t" + count;
             context.write(new Text(headWord + "\t" + sentenceOfHeadWord) , new Text(featuresAndCount)); 
         }
@@ -56,7 +57,9 @@ public class Step2 {
             String headWord = keyFields[0];
             HashSet<String> totalCountsOfFeatures = new HashSet<>();
             String generalCount = "";
+            
 
+            //Iterating over the values to find features with count_F_is_f, adding them in to the features HashSet
             for(Text value : values) {
                 String[] featuresArray = value.toString().split("\t")[0].split(" ");
                 generalCount = value.toString().split("\t")[1];
@@ -68,17 +71,22 @@ public class Step2 {
                     totalCountsOfFeatures.add(feature);
                 }
             }
+            //Making a string of all the features with count_F_is_f (seperated by space)
             String featuresWithCount_F_is_f = "";
             for(String feature : totalCountsOfFeatures){
                 featuresWithCount_F_is_f += feature + " ";
             }
+            
+            //We will write: 
+            //key: headword
+            //value: feature-1/relation/count_F_is_f  <space>    .... <space>  feature-k/relation/count_F_is_f       TAB        general_count_of_sentence  
             context.write(new Text(headWord) , new Text(featuresWithCount_F_is_f + "\t" + generalCount));
         }
     }
 
     public static class PartitionerClass2 extends Partitioner<Text, Text> {
         @Override
-        public int getPartition(Text key, IntWritable value, int numPartitions) {
+        public int getPartition(Text key, Text value, int numPartitions) {
             return Math.abs(key.hashCode()) % numPartitions;
         }
     }
@@ -96,7 +104,7 @@ public class Step2 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "mori-verabi"; // S3 bucket name
+        String bucketName = "myteacherandrabi"; // S3 bucket name
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

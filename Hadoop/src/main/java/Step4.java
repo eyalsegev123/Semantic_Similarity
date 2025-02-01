@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.io.InputStreamReader;
 
+//caculating the 24 coordinates
 public class Step4 {
 
     public static class MapperClass4 extends Mapper<LongWritable, Text, Text, Text> {
@@ -42,7 +43,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "mori_verabi"; // Your S3 bucket name
+            String bucketName = "myteacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -415,7 +416,7 @@ public class Step4 {
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "mori-verabi";
+        String bucketName = "myteacherandrabi";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();

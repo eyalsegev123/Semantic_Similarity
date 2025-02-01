@@ -1,5 +1,4 @@
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -20,10 +19,12 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
+//caclculating count F is f for each feature in the corpus
 public class Step1 {
 
     public static class MapperClass1 extends Mapper<LongWritable, Text, Text, Text> {
-        private HashSet<String> goldenWords = new HashSet<>();
+        private HashSet<String> goldenWords = new HashSet<>(); //Stemmed golden words
+        Stemmer stemmer = new Stemmer();
         
         protected void setup(Context context) throws IOException, InterruptedException {
             // Configure AWS client using instance profile credentials (recommended when
@@ -32,7 +33,7 @@ public class Step1 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "mori-verabi"; // Your S3 bucket name
+            String bucketName = "myteacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {
@@ -44,8 +45,8 @@ public class Step1 {
                         String[] fields = line.split("\t");
                         String word1 = fields[0];
                         String word2 = fields[1];
-                        goldenWords.add(word1);
-                        goldenWords.add(word2); // Needs to be Stemmed???????
+                        goldenWords.add(stem(word1));
+                        goldenWords.add(stem(word2));
                     }
                 }
             } catch (Exception e) {
@@ -72,6 +73,8 @@ public class Step1 {
 
             String[] nGramArrayWithOutHeadWord = new String[nGramArray.length - 1];
             int index_to_insert = 0;
+
+            //Remove the head-word's feature from the nGramArray
             for(int i = 0; i < nGramArray.length; i++) {
                 String featureWord = nGramArray[i].split("/")[0];
                 if(featureWord.equals(headWord)){
@@ -81,6 +84,7 @@ public class Step1 {
                 index_to_insert++;
             }
 
+            
             String featureCount = fields[2];
             String valueToWrite = headWord + "\t" + nGramArrayWithOutHeadWord + "\t" + featureCount;
             for(int i = 0; i < nGramArrayWithOutHeadWord.length; i++) { 
@@ -93,13 +97,11 @@ public class Step1 {
         }
 
 
-        public String stem(String str) {
-            //*
-            //*
-            // check how to stemm
-            //
-            //
-            return str; 
+        public String stem(String word) {
+            Stemmer stemmer = new Stemmer();
+            stemmer.add(word.toCharArray(), word.length()); // Add the full word
+            stemmer.stem(); // Perform stemming
+            return stemmer.toString();
         }
     }
     
@@ -114,11 +116,13 @@ public class Step1 {
             String featureKey = key.toString().trim();
             long count_F_is_f = 0;
             
+            //Summing the count_F_is_f for the feature
             for(Text value : values) {
                 String stringValue = value.toString();
                 count_F_is_f += Long.parseLong(stringValue.split("\t")[2]);
             }
 
+            //For each feature, we will turn the key-value back to how it used to be in the input, but with adding the count_F_is_f to the specific feature
             for(Text value : values) {
                 String stringValue = value.toString();
                 String[] fields = stringValue.split("\t");
@@ -140,7 +144,7 @@ public class Step1 {
 
     public static class PartitionerClass1 extends Partitioner<Text, Text> {
         @Override
-        public int getPartition(Text key, IntWritable value, int numPartitions) {
+        public int getPartition(Text key, Text value, int numPartitions) {
             return Math.abs(key.hashCode()) % numPartitions;
         }
     }
@@ -158,15 +162,10 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "mori-verabi"; // Your S3 bucket name
+        String bucketName = "myteacherandrabi"; // Your S3 bucket name
         job.setInputFormatClass(SequenceFileInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        // SequenceFileInputFormat.addInputPath(job,
-        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/1gram/data"));
-        // SequenceFileInputFormat.addInputPath(job,
-        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/2gram/data"));
-        // SequenceFileInputFormat.addInputPath(job,
-        //         new Path("s3://datasets.elasticmapreduce/ngrams/books/20090715/heb-all/3gram/data"));
+        SequenceFileInputFormat.addInputPath(job, new Path("")); // Path to the input that come from Google N-Grams
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);
