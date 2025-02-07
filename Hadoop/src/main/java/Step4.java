@@ -441,9 +441,11 @@ public class Step4 {
 
         // Parse the counter value from the file
         while ((line = br.readLine()) != null) {
-            if (line.contains("Counter F Value:")) {
-                String[] parts = line.split(":");
-                countF = Long.parseLong(parts[1].trim());
+            if (line.contains("=")) { // Ensure it has the expected format
+                String[] parts = line.split("="); 
+                if (parts.length == 2) {
+                    countF = Long.parseLong(parts[1].trim());
+                }
             }
         }
 
@@ -452,11 +454,14 @@ public class Step4 {
 
         // Parse the counter value from the file
         while ((line = br.readLine()) != null) {
-            if (line.contains("Counter L Value:")) {
-                String[] parts = line.split(":");
-                countL = Long.parseLong(parts[1].trim());
+            if (line.contains("=")) { // Ensure it has the expected format
+                String[] parts = line.split("="); 
+                if (parts.length == 2) {
+                    countL = Long.parseLong(parts[1].trim());
+                }
             }
         }
+        
         br.close();
         in.close();
 
@@ -481,5 +486,6 @@ public class Step4 {
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step4"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
+
     }
 }

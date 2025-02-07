@@ -169,7 +169,7 @@ public class Step1 {
         String bucketName = "teacherandrabi"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://teacherandrabi/biarcs10")); // Path to the input that come from Google N-Grams
+        TextInputFormat.addInputPath(job, new Path("s3://teacherandrabi/biarcs")); // Path to the input that come from Google N-Grams
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);
