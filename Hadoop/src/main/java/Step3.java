@@ -1,3 +1,4 @@
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -5,10 +6,13 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
@@ -43,7 +47,7 @@ public class Step3 {
             String[] featureArray = features.split(" "); //Seperate the features by spaces
             String newValueToWrite = "";
             
-            for(int i = 1; i < featureArray.length; i++) {
+            for(int i = 0; i < featureArray.length; i++) {
                 String[] fieldsOfFeature = featureArray[i].split("/");
                 String featureWord = fieldsOfFeature[0] ;
                 String featureRelation = fieldsOfFeature[1];
@@ -60,6 +64,33 @@ public class Step3 {
             //Value: <feature1-POS/count_f_is_F....  <TAB>  generalCount>
             context.write(new Text(headWord) , new Text(newValueToWrite + "\t" + generalCount)); 
         }
+
+        //Here will upload to S3 the count_F and count_L
+        public void cleanup(Context context) throws IOException, InterruptedException {
+            // 🔹 Step 1: Retrieve Counter Values
+            long countF = context.getCounter(Counters.COUNT_F).getValue();
+            long countL = context.getCounter(Counters.COUNT_L).getValue();
+
+            // 🔹 Step 2: Define S3 Bucket and File Paths
+            String bucketName = "teacherandrabi";  // Change this to your actual S3 bucket
+            String s3PathF = "s3://" + bucketName + "/counters/count_F.txt";
+            String s3PathL = "s3://" + bucketName + "/counters/count_L.txt";
+
+            // 🔹 Step 3: Upload to S3
+            Configuration conf = context.getConfiguration();
+            FileSystem fs = FileSystem.get(URI.create(s3PathF), conf);
+
+            // 🔹 Write COUNT_F to S3
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fs.create(new Path(s3PathF), true)))) {
+                writer.write("COUNT_F=" + countF);
+            }
+
+            // 🔹 Write COUNT_L to S3
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fs.create(new Path(s3PathL), true)))) {
+                writer.write("COUNT_L=" + countL);
+            }
+        }
+    
     }
     
 
@@ -135,10 +166,10 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "myteacherandrabi"; // Your S3 bucket name
-        job.setInputFormatClass(SequenceFileInputFormat.class);
+        String bucketName = "teacherandrabi"; // Your S3 bucket name
+        job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        SequenceFileInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
+        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);

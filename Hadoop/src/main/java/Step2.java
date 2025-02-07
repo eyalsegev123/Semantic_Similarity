@@ -5,7 +5,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.conf.Configuration;
 
@@ -104,11 +104,11 @@ public class Step2 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "myteacherandrabi"; // S3 bucket name
-        job.setInputFormatClass(SequenceFileInputFormat.class);
+        String bucketName = "teacherandrabi"; // S3 bucket name
+        job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 
-        SequenceFileInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step1"));
+        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step2"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);

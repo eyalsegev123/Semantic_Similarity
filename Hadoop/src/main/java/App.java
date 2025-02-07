@@ -15,7 +15,7 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
-    public static String bucketName = "myteacherandrabi";
+    public static String bucketName = "teacherandrabi";
 
     public static int numberOfInstances = 7;
 
@@ -39,7 +39,7 @@ public class App {
 
         // Step 1
         HadoopJarStepConfig firstStep = new HadoopJarStepConfig()
-                .withJar("s3://" + bucketName + "/jars/Step1.jar")
+                .withJar("s3://" + bucketName + "/jars/Step1-biarcs10.jar")
                 .withMainClass("Step1");
 
         // Step 2
@@ -90,7 +90,7 @@ public class App {
 
         System.out.println("Set steps");
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
-                .withName("Map reduce project")
+                .withName("Map reduce project - biarcs 10")
                 .withInstances(instances)
                 .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
                 .withLogUri("s3://" + bucketName + "/logs/")

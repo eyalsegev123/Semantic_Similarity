@@ -5,7 +5,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.IOException;
@@ -31,7 +31,7 @@ public class Step1 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "myteacherandrabi"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {
@@ -43,8 +43,8 @@ public class Step1 {
                         String[] fields = line.split("\t");
                         String word1 = fields[0];
                         String word2 = fields[1];
-                        goldenWords.add(stem(word1));
-                        goldenWords.add(stem(word2));
+                        goldenWords.add(stem(word1.trim()));
+                        goldenWords.add(stem(word2.trim()));
                     }
                 }
             } catch (Exception e) {
@@ -60,7 +60,7 @@ public class Step1 {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
-            String headWord = stem(fields[0]);
+            String headWord = stem(fields[0].trim());
 
             if(!goldenWords.contains(headWord)) {
                 return;
@@ -82,9 +82,15 @@ public class Step1 {
                 index_to_insert++;
             }
 
+
+            String nGramArrayWithOutHeadWordString = "";
+            for (String feature : nGramArrayWithOutHeadWord) {
+                nGramArrayWithOutHeadWordString += feature + " ";
+            }
+            nGramArrayWithOutHeadWordString = nGramArrayWithOutHeadWordString.substring(0, nGramArrayWithOutHeadWordString.length() - 1);
             
             String featureCount = fields[2];
-            String valueToWrite = headWord + "\t" + nGramArrayWithOutHeadWord + "\t" + featureCount;
+            String valueToWrite = headWord + "\t" + nGramArrayWithOutHeadWordString + "\t" + featureCount;
             for(int i = 0; i < nGramArrayWithOutHeadWord.length; i++) { 
                 String[] fieldsOfFeature = nGramArrayWithOutHeadWord[i].split("/");
                 String featureWord = fieldsOfFeature[0];
@@ -160,10 +166,10 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "myteacherandrabi"; // Your S3 bucket name
-        job.setInputFormatClass(SequenceFileInputFormat.class);
+        String bucketName = "teacherandrabi"; // Your S3 bucket name
+        job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        SequenceFileInputFormat.addInputPath(job, new Path("")); // Path to the input that come from Google N-Grams
+        TextInputFormat.addInputPath(job, new Path("s3://teacherandrabi/biarcs10")); // Path to the input that come from Google N-Grams
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);

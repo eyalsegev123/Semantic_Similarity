@@ -1,4 +1,3 @@
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -49,7 +48,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "myteacherandrabi"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -421,14 +420,14 @@ public class Step4 {
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "myteacherandrabi";
+        String bucketName = "teacherandrabi";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();
 
         // Step 2: Retrieve the counter value from S3
-        String counterF_FilePath = "s3://" + bucketName + "/output/counters/F.txt";
-        String counterL_FilePath = "s3://" + bucketName + "/output/counters/L.txt";
+        String counterF_FilePath = "s3://" + bucketName + "/counters/count_F.txt";
+        String counterL_FilePath = "s3://" + bucketName + "/counters/count_L.txt";
 
         // Step 3: Read the counter value from the file in S3
         FileSystem fs = FileSystem.get(new URI("s3://" + bucketName), conf);
