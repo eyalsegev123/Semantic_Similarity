@@ -57,8 +57,8 @@ public class Step4 {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         String[] fields = line.split("\t");
-                        String word1 = stem(fields[0]);
-                        String word2 = stem(fields[1]);
+                        String word1 = stem(fields[0].trim());
+                        String word2 = stem(fields[1].trim());
 
                         if (goldenPairs.get(word1) != null) {
                             goldenPairs.get(word1).add(word2);
@@ -93,6 +93,11 @@ public class Step4 {
             if (fields.length == 0) {
                 return;
             }
+
+            String headWord = fields[0];
+            if(goldenPairs.get(headWord) == null) {
+                return;
+            }
             String[] featuresArray = fields[1].split(" ");
             long count_L_is_l = Long.parseLong(fields[2]);
 
@@ -113,15 +118,11 @@ public class Step4 {
             HashMap<String, Double> measures_by_method_7 = measures_by_method_7(featuresByCount, measures_by_method_6);
             HashMap<String, Double> measures_by_method_8 = measures_by_method_8(featuresByCount, count_L_is_l);
 
-            for (Map.Entry<String, HashSet<String>> entry : goldenPairs.entrySet()) {
-                String word = entry.getKey();
-                HashSet<String> relatedWords = entry.getValue();
-                for (String relatedWord : relatedWords) {
-                    String[] key_value = makePairToReducer(word, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7, measures_by_method_8);
-                    context.write(new Text(key_value[0]) , new Text(key_value[1]));
-                }
+            HashSet<String> relatedWords = goldenPairs.get(headWord);
+            for (String relatedWord : relatedWords) {
+                String[] key_value = makePairToReducer(headWord, relatedWord, measures_by_method_5, measures_by_method_6, measures_by_method_7, measures_by_method_8);
+                context.write(new Text(key_value[0]) , new Text(key_value[1]));
             }
-
         }
 
         protected String[] makePairToReducer(String word, String relatedWord, HashMap<String, Double> m5,
@@ -461,7 +462,7 @@ public class Step4 {
                 }
             }
         }
-        
+
         br.close();
         in.close();
 
