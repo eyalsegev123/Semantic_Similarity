@@ -24,24 +24,35 @@ public class Step2 {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
+
+            if(fields.length < 3) return;
+        
             String headWord = fields[0];
-            String[] featureArray = fields[1].split(" ");
+            String features = fields[1];
+            String[] featureArray = features.split(" ");
             String count = fields[2];
+
+            if(featureArray.length == 0) return;
+
             String sentenceOfHeadWord = "";
-            //Extracting sentence of head word
+            String[] featureWordArray = new String[featureArray.length];
+            
+            //Extract Words of features
             for(int i=0; i<featureArray.length; i++) {
-                String wordOfFeature = featureArray[i].split("/")[0];
-                sentenceOfHeadWord += wordOfFeature + " ";
-            } 
+                featureWordArray[i] = featureArray[i].split("/")[0];
+            }
+            //Creating sentence of head word
+            for(int i=0; i<featureWordArray.length; i++) {
+                sentenceOfHeadWord += featureWordArray[i] + " ";
+            }
+            sentenceOfHeadWord = sentenceOfHeadWord.substring(0, sentenceOfHeadWord.length() - 1); //removing the last space
 
             //we will send the key: head-word TAB sentenceOfHeadWord --> this way, in the reducer, we will connect between the count_F_is_f of each feature of the sentence.
-            String featuresAndCount = fields[1] + "\t" + count;
+            String featuresAndCount = features + "\t" + count;
             context.write(new Text(headWord + "\t" + sentenceOfHeadWord) , new Text(featuresAndCount)); 
         }
 
     }
-    
-    
     
     public static class ReducerClass2 extends Reducer<Text, Text, Text, Text> {
        
@@ -55,32 +66,45 @@ public class Step2 {
             
             String[] keyFields = key.toString().split("\t");
             String headWord = keyFields[0];
-            HashSet<String> totalCountsOfFeatures = new HashSet<>();
+            HashSet<String> featuresWithCount_F_is_f = new HashSet<>();
             String generalCount = "";
-            
+
+            HashSet<Text> valuesSet = new HashSet<>();
+            for(Text value : values) {
+                valuesSet.add(value);
+            }
 
             //Iterating over the values to find features with count_F_is_f, adding them in to the features HashSet
-            for(Text value : values) {
-                String[] featuresArray = value.toString().split("\t")[0].split(" ");
-                generalCount = value.toString().split("\t")[1];
+            for(Text value : valuesSet) {
+                String[] fields = value.toString().split("\t");
+
+                String features = fields[0];
+                String[] featuresArray = features.split(" ");
+
+                generalCount = fields[1];
                 for(String feature : featuresArray){
                     String[] featureFields = feature.split("/");
                     if(featureFields.length < 3){
                         continue;
                     }
-                    totalCountsOfFeatures.add(feature);
+                    featuresWithCount_F_is_f.add(feature); // For example: for/prep/count_F_is_f
                 }
             }
+
+            if(featuresWithCount_F_is_f.size() == 0) return;
+
             //Making a string of all the features with count_F_is_f (seperated by space)
-            String featuresWithCount_F_is_f = "";
-            for(String feature : totalCountsOfFeatures){
-                featuresWithCount_F_is_f += feature + " ";
+            String featuresWithCount_F_is_f_String = "";
+            for(String feature : featuresWithCount_F_is_f){
+                featuresWithCount_F_is_f_String += feature + " ";
             }
+
+            featuresWithCount_F_is_f_String = featuresWithCount_F_is_f_String.substring(0, featuresWithCount_F_is_f_String.length() - 1); //removing the last space
             
             //We will write: 
             //key: headword
             //value: feature-1/relation/count_F_is_f  <space>    .... <space>  feature-k/relation/count_F_is_f       TAB        general_count_of_sentence  
-            context.write(new Text(headWord) , new Text(featuresWithCount_F_is_f + "\t" + generalCount));
+            context.write(new Text(headWord) , new Text(featuresWithCount_F_is_f_String + "\t" + generalCount));
         }
     }
 

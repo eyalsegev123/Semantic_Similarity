@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 
@@ -26,7 +27,7 @@ public class Step3 {
         }
 
         
-        //The format the we get in the input file is: <headWord  TAB features (seperated by SPACES)  TAB totalCount>
+        //The format we get in the input file is: <headWord  TAB features (seperated by SPACES)  TAB totalCount>
         @Override
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
@@ -45,6 +46,8 @@ public class Step3 {
             context.getCounter(Counters.COUNT_L).increment(Integer.parseInt(generalCount));
             
             String[] featureArray = features.split(" "); //Seperate the features by spaces
+            if(featureArray.length == 0) return;
+            
             String newValueToWrite = "";
             
             for(int i = 0; i < featureArray.length; i++) {
@@ -57,11 +60,13 @@ public class Step3 {
                 String finalFeatureWithCount = featureWord + "-" + featureRelation + "/" + count_F_is_f;
 
                 newValueToWrite += finalFeatureWithCount + " ";
+
                 context.getCounter(Counters.COUNT_F).increment(Integer.parseInt(generalCount));
             }
             //We send:
             //Key: headWord
             //Value: <feature1-POS/count_f_is_F....  <TAB>  generalCount>
+            newValueToWrite = newValueToWrite.substring(0, newValueToWrite.length() - 1);
             context.write(new Text(headWord) , new Text(newValueToWrite + "\t" + generalCount)); 
         }
 
@@ -96,51 +101,75 @@ public class Step3 {
 
     // The reducer will get: Iterable of sentences of headWord
     // Key: headWord
-    // An Iterable of Values: <feature1-POS/count_f_is_F....  <TAB>  generalCount> , value2 .....
+    // An Iterable of Values: <feature1-relation/count_f_is_F....  <TAB>  generalCount> , value2 .....
 
     //We will send to Mapper4: 
     //Key: headWord
-    //Value: <feature1-POS/count_f_is_F/count_f_With_l ..... > TAB count_L_is_l
+    //Value: <feature1-POS/count_f_With_l/count_f_is_F ..... > TAB count_L_is_l
     public static class ReducerClass3 extends Reducer<Text, Text, Text, Text> {
     
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            String headWord = key.toString().trim();
-            HashMap<String, Integer> currentHeadWordFeaturesToCount = new HashMap<>();
-            long count_L_is_l = 0; // Total count of the headWord
+           
+            HashSet<String> valuesSet = new HashSet<>();
 
-
+            //loop for creating the set and prevent the duplications
             for(Text value : values) {
-                count_L_is_l += Long.parseLong(value.toString().split("\t")[1]);
+                String[] valueFields = value.toString().split("\t");
+                String features = valueFields[0];
+                String generalCount = valueFields[1];
+                valuesSet.add(features + "\t" + generalCount);
+            }
+
+            String headWord = key.toString().trim();
+            HashMap<String, Long> featureToCount_f_with_l = new HashMap<>();
+            HashMap<String, Long> featureToCount_F_is_f = new HashMap<>();
+            long count_L_is_l = 0; // Total count of the headWord
+            
+            //Iterating over the values to compute the count_L_is_l
+            for(String value : valuesSet) {
+                Long generalCount = Long.parseLong(value.split("\t")[1]);
+                count_L_is_l += generalCount;
             }
 
             //Summing the appearences of some f with l from every sentence of l
-            for(Text value : values) {
-                
-                String[] valueFields = value.toString().split("\t");
+            for(String value : valuesSet) {
+                String[] valueFields = value.split("\t");
                 String[] features = valueFields[0].split(" ");
-                int generalCount = Integer.parseInt(valueFields[1]);
-
+                Long generalCount = Long.parseLong(valueFields[1]);
+                //context.write(new Text("[DEBUG]- headword: " + headWord) , new Text("value: " + value));
                 for(String feature : features){
+                    
                     String[] featureFields = feature.split("/");
                     String featureWordWithRelation = featureFields[0];
-                    String count_F_is_f = featureFields[1];
-                    int current_count_f_with_l = currentHeadWordFeaturesToCount.getOrDefault(featureWordWithRelation + "\t" + count_F_is_f, 0);
-                    currentHeadWordFeaturesToCount.put(featureWordWithRelation + "\t" + count_F_is_f , current_count_f_with_l + generalCount); 
+                    
+                    //Inserting every feature with its count F is f to hashMap
+                    long count_F_is_f = Long.parseLong(featureFields[1]);
+                    featureToCount_F_is_f.put(featureWordWithRelation , count_F_is_f);
+                    
+                    //Inserting every feature into the featureToCount_f_with_l
+                    long current_count_f_with_l = featureToCount_f_with_l.getOrDefault(featureWordWithRelation, 0L);
+                    featureToCount_f_with_l.put(featureWordWithRelation, current_count_f_with_l + generalCount); 
+                    //context.write(new Text("[DEBUG]- f = " + featureWordWithRelation + " , l = " + headWord) ,
+                    //new Text("current (F is f) = " + featureToCount_F_is_f.get(featureWordWithRelation) + "current (f with l) = " + featureToCount_f_with_l.get(featureWordWithRelation)));
                 }
             }
 
             String newValueToWrite = "";
-            for(Map.Entry<String, Integer> entry : currentHeadWordFeaturesToCount.entrySet()) {
-                String featureWordWithRelation = entry.getKey().split("\t")[0];
-                String count_F_is_f = entry.getKey().split("\t")[1];
+            
+            if(featureToCount_f_with_l.size() == 0 || featureToCount_F_is_f.size() == 0) return;
+
+            for(Map.Entry<String, Long> entry : featureToCount_f_with_l.entrySet()) {
+                String featureWordWithRelation = entry.getKey();
+                String count_F_is_f = featureToCount_F_is_f.get(featureWordWithRelation).toString();
                 String count_f_with_l = entry.getValue().toString();
 
                 newValueToWrite += featureWordWithRelation + "/" + count_f_with_l + "/" + count_F_is_f + " ";
                 // we add every feature to the value in this type:
                 //word-relation/count(f,l)/count(F=f)
             }
+            newValueToWrite = newValueToWrite.substring(0, newValueToWrite.length() - 1);
             context.write(new Text(headWord) , new Text(newValueToWrite + "\t" + count_L_is_l));
 
         }

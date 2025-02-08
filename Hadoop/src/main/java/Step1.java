@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.LinkedList;
 
 import org.apache.hadoop.conf.Configuration;
 import com.amazonaws.services.s3.AmazonS3;
@@ -23,7 +24,9 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 public class Step1 {
 
     public static class MapperClass1 extends Mapper<LongWritable, Text, Text, Text> {
+        
         private HashSet<String> goldenWords = new HashSet<>(); //Stemmed golden words
+
         protected void setup(Context context) throws IOException, InterruptedException {
             // Configure AWS client using instance profile credentials (recommended when
             // running on AWS infrastructure)
@@ -40,11 +43,16 @@ public class Step1 {
                         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        String[] fields = line.split("\t");
-                        String word1 = fields[0];
-                        String word2 = fields[1];
-                        goldenWords.add(stem(word1.trim()));
-                        goldenWords.add(stem(word2.trim()));
+                        String[] fields = line.split("\\s+"); // Split by any whitespace (TAB or SPACE)
+                    
+                        // Ensure the line has at least two words
+                        if (fields.length < 2) continue;
+
+                        String word1 = fields[0].trim();
+                        String word2 = fields[1].trim();
+
+                        if (!word1.isEmpty()) goldenWords.add(stem(word1));
+                        if (!word2.isEmpty()) goldenWords.add(stem(word2));
                     }
                 }
             } catch (Exception e) {
@@ -60,39 +68,45 @@ public class Step1 {
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String line = value.toString();
             String[] fields = line.split("\t"); // Split by tab
-            String headWord = stem(fields[0].trim());
+            
+            if(fields.length < 3) return;
+            
+            String headWord = fields[0].trim();
+            String headWordStemmed = stem(headWord);
+            String nGram = fields[1];
 
-            if(!goldenWords.contains(headWord)) {
+            if(!goldenWords.contains(headWordStemmed)) {
                 return;
             }
 
-            String nGram = fields[1];
-            String[] nGramArray = nGram.split(" ");
+            String[] nGramArray = nGram.split("\\s+");
+            if(nGramArray.length == 0) return;
+            
 
-            String[] nGramArrayWithOutHeadWord = new String[nGramArray.length - 1];
-            int index_to_insert = 0;
-
+            LinkedList<String> nGramArrayWithOutHeadWord = new LinkedList<>();
+ 
             //Remove the head-word's feature from the nGramArray
             for(int i = 0; i < nGramArray.length; i++) {
                 String featureWord = nGramArray[i].split("/")[0];
-                if(featureWord.equals(headWord)){
+                if(featureWord.equals(headWord))
                     continue;
-                }
-                nGramArrayWithOutHeadWord[index_to_insert] = nGramArray[i];
-                index_to_insert++;
+                nGramArrayWithOutHeadWord.add(nGramArray[i]);
             }
-
+            
+            if(nGramArrayWithOutHeadWord.size() == 0) return;
+            
 
             String nGramArrayWithOutHeadWordString = "";
             for (String feature : nGramArrayWithOutHeadWord) {
                 nGramArrayWithOutHeadWordString += feature + " ";
             }
-            nGramArrayWithOutHeadWordString = nGramArrayWithOutHeadWordString.substring(0, nGramArrayWithOutHeadWordString.length() - 1);
+            nGramArrayWithOutHeadWordString = nGramArrayWithOutHeadWordString.substring(0, nGramArrayWithOutHeadWordString.length() - 1); //removing the last space
             
             String featureCount = fields[2];
-            String valueToWrite = headWord + "\t" + nGramArrayWithOutHeadWordString + "\t" + featureCount;
-            for(int i = 0; i < nGramArrayWithOutHeadWord.length; i++) { 
-                String[] fieldsOfFeature = nGramArrayWithOutHeadWord[i].split("/");
+            String valueToWrite = headWordStemmed + "\t" + nGramArrayWithOutHeadWordString + "\t" + featureCount;
+            
+            for(int i = 0; i < nGramArrayWithOutHeadWord.size(); i++) {
+                String[] fieldsOfFeature = nGramArrayWithOutHeadWord.get(i).split("/");
                 String featureWord = fieldsOfFeature[0];
                 String featureRelation = fieldsOfFeature[2];
                 String feature = featureWord + "-" + featureRelation;
@@ -109,40 +123,44 @@ public class Step1 {
         }
     }
     
-    
-    
     public static class ReducerClass1 extends Reducer<Text, Text, Text, Text> {
     
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-
+                            
             String featureKey = key.toString().trim();
+            String featureWord = featureKey.split("-")[0];
             long count_F_is_f = 0;
             
+            HashSet<Text> valuesSet = new HashSet<>();
+
             //Summing the count_F_is_f for the feature
             for(Text value : values) {
                 String stringValue = value.toString();
-                count_F_is_f += Long.parseLong(stringValue.split("\t")[2]);
+                Long generalCount = Long.parseLong(stringValue.split("\t")[2]);
+                count_F_is_f += generalCount;
+                valuesSet.add(value);
             }
 
             //For each feature, we will turn the key-value back to how it used to be in the input, but with adding the count_F_is_f to the specific feature
-            for(Text value : values) {
+            for(Text value : valuesSet) {
                 String stringValue = value.toString();
                 String[] fields = stringValue.split("\t");
                 String originalHeadWordOfFeature = fields[0];
-                String valueToWrite = "";
                 String[] ngramArray = fields[1].split(" ");
                 String featureCount = fields[2];
+                String valueToWrite = "";
                 for(String feature : ngramArray) {
                     String[] fieldsOfFeature = feature.split("/"); //Splitting the feature by "/"
-                    if(fieldsOfFeature[0].equals(featureKey))
+                    if(fieldsOfFeature[0].equals(featureWord))
                         valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + "/" + count_F_is_f + " ";
                     else
                         valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + " ";        
                 }
+                valueToWrite = valueToWrite.substring(0, valueToWrite.length() - 1);
                 context.write(new Text(originalHeadWordOfFeature), new Text(valueToWrite + "\t" + featureCount));
-            }
+            }        
         }
     }
 
@@ -174,4 +192,5 @@ public class Step1 {
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
-}
+}   
+

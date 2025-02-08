@@ -210,16 +210,29 @@ public class Step4 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
+            HashSet<Text> valuesSet = new HashSet<>();
+            for(Text value : valuesSet){
+                valuesSet.add(value);
+            }
             String[] valuesString = new String[2];
             int index = 0;
-            for(Text value : values) {
+
+            for(Text value : valuesSet) {
                 if(index >= 2)
                     break;
                 valuesString[index] = value.toString();
                 index++;
             }
+
+            if(index < 2 || valuesString[0] == null || valuesString[1] == null) {
+                context.write(new Text("[DEBUG] - exit in if") , new Text("pair: " + key.toString()+ " length: "+ index + " values: " + values.toString()));
+                return;
+            }
             int numberOfFeaturesInFirst = valuesString[0].split("\t").length; 
             int numberOfFeaturesInSecond =  valuesString[1].split("\t").length;
+
+            if(numberOfFeaturesInFirst == 0 && numberOfFeaturesInSecond == 0) return;
+
             String[][] vectors = new String[2][Math.max(numberOfFeaturesInFirst , numberOfFeaturesInSecond)];
             insertCommonAndNotCommonFeatures(vectors , valuesString);
             
