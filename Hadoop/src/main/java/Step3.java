@@ -1,12 +1,11 @@
-import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -69,36 +68,9 @@ public class Step3 {
             newValueToWrite = newValueToWrite.substring(0, newValueToWrite.length() - 1);
             context.write(new Text(headWord) , new Text(newValueToWrite + "\t" + generalCount)); 
         }
-
-        //Here will upload to S3 the count_F and count_L
-        public void cleanup(Context context) throws IOException, InterruptedException {
-            // 🔹 Step 1: Retrieve Counter Values
-            long countF = context.getCounter(Counters.COUNT_F).getValue();
-            long countL = context.getCounter(Counters.COUNT_L).getValue();
-
-            // 🔹 Step 2: Define S3 Bucket and File Paths
-            String bucketName = "lamine-yamal";  // Change this to your actual S3 bucket
-            String s3PathF = "s3://" + bucketName + "/counters/count_F.txt";
-            String s3PathL = "s3://" + bucketName + "/counters/count_L.txt";
-
-            // 🔹 Step 3: Upload to S3
-            Configuration conf = context.getConfiguration();
-            FileSystem fs = FileSystem.get(URI.create(s3PathF), conf);
-
-            // 🔹 Write COUNT_F to S3
-            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fs.create(new Path(s3PathF), true)))) {
-                writer.write("COUNT_F=" + countF);
-            }
-
-            // 🔹 Write COUNT_L to S3
-            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(fs.create(new Path(s3PathL), true)))) {
-                writer.write("COUNT_L=" + countL);
-            }
-        }
     
     }
     
-
     // The reducer will get: Iterable of sentences of headWord
     // Key: headWord
     // An Iterable of Values: <feature1-relation/count_f_is_F....  <TAB>  generalCount> , value2 .....
@@ -201,6 +173,33 @@ public class Step3 {
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         
-        System.exit(job.waitForCompletion(true) ? 0 : 1);
+        boolean success = job.waitForCompletion(true);
+        
+        if(success) {  
+            // Retrieve the counter values for COUNT_F and COUNT_L
+            long countF = job.getCounters().findCounter(MapperClass3.Counters.COUNT_F).getValue();
+            long countL = job.getCounters().findCounter(MapperClass3.Counters.COUNT_L).getValue();
+
+            // Define the S3 paths for the counter files
+            String s3PathF = "s3://" + bucketName + "/counters/count_F.txt";
+            String s3PathL = "s3://" + bucketName + "/counters/count_L.txt";
+            
+            // Get the FileSystem instances for the S3 paths
+            FileSystem fs_F = FileSystem.get(URI.create(s3PathF), conf);
+            FileSystem fs_L = FileSystem.get(URI.create(s3PathL), conf);
+            
+            // Write the counter values to the files in S3
+            Path pathF = new Path(s3PathF);
+            Path pathL = new Path(s3PathL);
+            
+            try (FSDataOutputStream outF = fs_F.create(pathF)) {
+            outF.writeBytes("countF =" + countF);
+            }
+            try(FSDataOutputStream outL = fs_L.create(pathL)) {
+            outL.writeBytes("countL =" + countL);
+            }
+        }
+
+        System.exit(success ? 0 : 1);
     }
 }

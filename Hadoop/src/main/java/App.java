@@ -14,6 +14,8 @@ import com.amazonaws.services.elasticmapreduce.model.RunJobFlowResult;
 import com.amazonaws.services.elasticmapreduce.model.StepConfig;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.AmazonServiceException;
+
 
 public class App {
 
@@ -85,26 +87,40 @@ public class App {
         //Job flow
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
                 .withInstanceCount(numberOfInstances)
-                .withMasterInstanceType(InstanceType.M4Xlarge.toString())
-                .withSlaveInstanceType(InstanceType.M4Xlarge.toString())
+                .withMasterInstanceType(InstanceType.M4Large.toString())
+                .withSlaveInstanceType(InstanceType.M4Large.toString())
                 .withHadoopVersion("3.4.1")
                 .withEc2KeyName("vockey")
                 .withKeepJobFlowAliveWhenNoSteps(false)
                 .withPlacement(new PlacementType("us-east-1a"));
 
         System.out.println("Set steps");
-        RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
-                .withName("Map reduce project - biarcs 10")
-                .withInstances(instances)
-                .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
-                .withLogUri("s3://" + bucketName + "/logs/")
-                .withServiceRole("EMR_DefaultRole")
-                .withJobFlowRole("EMR_EC2_DefaultRole")
-                .withReleaseLabel("emr-5.11.0");
+        
 
-        RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
-        String jobFlowId = runJobFlowResult.getJobFlowId();
-        System.out.println("Ran job flow with id: " + jobFlowId);
+
+        try {
+
+                RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
+                        .withName("Map reduce project - biarcs 10")
+                        .withInstances(instances)
+                        .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
+                        .withLogUri("s3://" + bucketName + "/logs/")
+                        .withServiceRole("EMR_DefaultRole")
+                        .withJobFlowRole("EMR_EC2_DefaultRole")
+                        .withReleaseLabel("emr-5.11.0");
+                RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
+                String jobFlowId = runJobFlowResult.getJobFlowId();
+                System.out.println("Ran job flow with id: " + jobFlowId);
+        } catch (AmazonServiceException e) {
+                System.err.println("Error running job flow: " + e.getErrorMessage());
+                System.err.println("Status code: " + e.getStatusCode());
+                System.err.println("Error code: " + e.getErrorCode());
+                System.err.println("Request ID: " + e.getRequestId());
+        }
+                    
+        // RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
+        // String jobFlowId = runJobFlowResult.getJobFlowId();
+        //System.out.println("Ran job flow with id: " + jobFlowId);
     }
 }
 

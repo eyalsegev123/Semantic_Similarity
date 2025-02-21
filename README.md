@@ -6,7 +6,7 @@
 - Lior Hagay (314872367)
 
 ## Project Overview
-This project implements a semantic similarity analysis system using Hadoop MapReduce. It processes Google's Syntactic N-Grams dataset to create co-occurrence vectors that represent semantic relationships between words. The system works by analyzing word pairs in sentences and calculating their contextual relationships across a large corpus of text.
+This project implements a semantic similarity analysis system using Hadoop Map-Reduce. It processes Google's Syntactic N-Grams dataset to create co-occurrence vectors that represent semantic relationships between words. The system works by analyzing word pairs in sentences and calculating their contextual relationships across a large corpus of text.
 
 ## Input
 The system uses the English All-Biarcs dataset from Google Syntactic N-Grams as input. This dataset contains syntactic dependencies between words in English sentences, providing rich contextual information for semantic analysis.
@@ -15,9 +15,28 @@ The system uses the English All-Biarcs dataset from Google Syntactic N-Grams as 
 The final output consists of co-occurrence vectors that represent the semantic relationships between words. These vectors capture how words appear together in various contexts, allowing for semantic similarity comparisons.
 
 ## Running the Project
-To run the project, use the following Maven command:
+
+#### 1. Update your AWS credentials and Prepare the JAR Files (\*):
+
+We recommend to use nano for loading your AWS credentials.
+Command: nano ~/.aws/credentials
+
+Use Maven to package the project into separate JARs for each Step.
+
+Command: mvn clean package
+
+Modify the pom.xml to specify the main class for the JAR you are creating.
+
+### 2. Upload the JARs (*):
+
+Ensure that all JAR ﬁles for the steps are uploaded to the correct S3 paths as needed.
+
+### 3. Execute the Application:**
+
+Run App.java locally to run the EMR jobs.
+command:
 ```bash
-mvn exec:java -Dexec.mainClass="App"
+mvn exec:java "-Dexec.mainClass=App"
 ```
 
 ## Project Description
