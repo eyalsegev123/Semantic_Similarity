@@ -1,3 +1,7 @@
+import java.io.IOException;
+import java.util.HashSet;
+
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -7,10 +11,6 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-import org.apache.hadoop.conf.Configuration;
-
-import java.io.IOException;
-import java.util.HashSet;
 
 
 //Reunite the updated features with their original keys 
@@ -128,7 +128,7 @@ public class Step2 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "teacherandrabi"; // S3 bucket name
+        String bucketName = "lamine-yamal"; // S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

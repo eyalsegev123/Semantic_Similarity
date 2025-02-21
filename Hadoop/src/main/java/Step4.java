@@ -1,4 +1,14 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -8,21 +18,11 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.io.InputStreamReader;
 
 //caculating the 24 coordinates
 public class Step4 {
@@ -48,7 +48,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "teacherandrabi"; // Your S3 bucket name
+            String bucketName = "lamine-yamal"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -434,7 +434,7 @@ public class Step4 {
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "teacherandrabi";
+        String bucketName = "lamine-yamal";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();

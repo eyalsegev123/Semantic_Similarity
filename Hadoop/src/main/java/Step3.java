@@ -1,3 +1,12 @@
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -8,15 +17,6 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
-
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import org.apache.hadoop.conf.Configuration;
 
 //Calculating count_L, count_F, count(l,f)
 public class Step3 {
@@ -77,7 +77,7 @@ public class Step3 {
             long countL = context.getCounter(Counters.COUNT_L).getValue();
 
             // 🔹 Step 2: Define S3 Bucket and File Paths
-            String bucketName = "teacherandrabi";  // Change this to your actual S3 bucket
+            String bucketName = "lamine-yamal";  // Change this to your actual S3 bucket
             String s3PathF = "s3://" + bucketName + "/counters/count_F.txt";
             String s3PathL = "s3://" + bucketName + "/counters/count_L.txt";
 
@@ -195,7 +195,7 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "teacherandrabi"; // Your S3 bucket name
+        String bucketName = "lamine-yamal"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));

@@ -1,3 +1,10 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.HashSet;
+import java.util.LinkedList;
+
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -8,13 +15,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.util.LinkedList;
-
-import org.apache.hadoop.conf.Configuration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.S3Object;
@@ -34,7 +34,7 @@ public class Step1 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "teacherandrabi"; // Your S3 bucket name
+            String bucketName = "lamine-yamal"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {
@@ -184,10 +184,10 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "teacherandrabi"; // Your S3 bucket name
+        String bucketName = "lamine-yamal"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://teacherandrabi/biarcs")); // Path to the input that come from Google N-Grams
+        TextInputFormat.addInputPath(job, new Path("s3://lamine-yamal/biarcs10")); // Path to the input that come from Google N-Grams
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);
