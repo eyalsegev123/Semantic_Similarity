@@ -85,8 +85,8 @@ public class App {
         //Job flow
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
                 .withInstanceCount(numberOfInstances)
-                .withMasterInstanceType(InstanceType.M4Large.toString())
-                .withSlaveInstanceType(InstanceType.M4Large.toString())
+                .withMasterInstanceType(InstanceType.M4Xlarge.toString())
+                .withSlaveInstanceType(InstanceType.M4Xlarge.toString())
                 .withHadoopVersion("3.4.1")
                 .withEc2KeyName("vockey")
                 .withKeepJobFlowAliveWhenNoSteps(false)
@@ -109,4 +109,4 @@ public class App {
 }
 
 // aws configure set aws_session_token YOUR SESSION TOKEN
-// mvn exec:java -Dexec."mainClass=App"
+// mvn exec:java "-Dexec.mainClass=App"
