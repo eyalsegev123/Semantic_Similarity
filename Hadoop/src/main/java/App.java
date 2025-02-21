@@ -107,3 +107,6 @@ public class App {
         System.out.println("Ran job flow with id: " + jobFlowId);
     }
 }
+
+// aws configure set aws_session_token YOUR SESSION TOKEN
+// mvn exec:java -Dexec."mainClass=App"
