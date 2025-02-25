@@ -14,8 +14,6 @@ import com.amazonaws.services.elasticmapreduce.model.RunJobFlowResult;
 import com.amazonaws.services.elasticmapreduce.model.StepConfig;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.AmazonServiceException;
-
 
 public class App {
 
@@ -23,7 +21,7 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
-    public static String bucketName = "lamine-yamal";
+    public static String bucketName = "teacherandrabi";
 
     public static int numberOfInstances = 7;
 
@@ -98,9 +96,7 @@ public class App {
         
 
 
-        try {
-
-                RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
+        RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
                         .withName("Map reduce project - biarcs 10")
                         .withInstances(instances)
                         .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
@@ -108,19 +104,10 @@ public class App {
                         .withServiceRole("EMR_DefaultRole")
                         .withJobFlowRole("EMR_EC2_DefaultRole")
                         .withReleaseLabel("emr-5.11.0");
-                RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
-                String jobFlowId = runJobFlowResult.getJobFlowId();
-                System.out.println("Ran job flow with id: " + jobFlowId);
-        } catch (AmazonServiceException e) {
-                System.err.println("Error running job flow: " + e.getErrorMessage());
-                System.err.println("Status code: " + e.getStatusCode());
-                System.err.println("Error code: " + e.getErrorCode());
-                System.err.println("Request ID: " + e.getRequestId());
-        }
                     
-        // RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
-        // String jobFlowId = runJobFlowResult.getJobFlowId();
-        //System.out.println("Ran job flow with id: " + jobFlowId);
+        RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
+        String jobFlowId = runJobFlowResult.getJobFlowId();
+        System.out.println("Ran job flow with id: " + jobFlowId);
     }
 }
 

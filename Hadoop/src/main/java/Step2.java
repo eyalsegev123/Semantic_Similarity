@@ -45,7 +45,7 @@ public class Step2 {
             for(int i=0; i<featureWordArray.length; i++) {
                 sentenceOfHeadWord += featureWordArray[i] + " ";
             }
-            sentenceOfHeadWord = sentenceOfHeadWord.substring(0, sentenceOfHeadWord.length() - 1); //removing the last space
+            sentenceOfHeadWord = sentenceOfHeadWord.trim(); //removing the last space or other spaces before and after
 
             //we will send the key: head-word TAB sentenceOfHeadWord --> this way, in the reducer, we will connect between the count_F_is_f of each feature of the sentence.
             String featuresAndCount = features + "\t" + count;
@@ -69,14 +69,14 @@ public class Step2 {
             HashSet<String> featuresWithCount_F_is_f = new HashSet<>();
             String generalCount = "";
 
-            HashSet<Text> valuesSet = new HashSet<>();
+            HashSet<String> valuesSet = new HashSet<>();
             for(Text value : values) {
-                valuesSet.add(value);
+                valuesSet.add(value.toString());
             }
 
             //Iterating over the values to find features with count_F_is_f, adding them in to the features HashSet
-            for(Text value : valuesSet) {
-                String[] fields = value.toString().split("\t");
+            for(String value : valuesSet) {
+                String[] fields = value.split("\t");
 
                 String features = fields[0];
                 String[] featuresArray = features.split(" ");
@@ -99,7 +99,7 @@ public class Step2 {
                 featuresWithCount_F_is_f_String += feature + " ";
             }
 
-            featuresWithCount_F_is_f_String = featuresWithCount_F_is_f_String.substring(0, featuresWithCount_F_is_f_String.length() - 1); //removing the last space
+            featuresWithCount_F_is_f_String = featuresWithCount_F_is_f_String.trim(); //removing the last space
             
             //We will write: 
             //key: headword
@@ -111,7 +111,7 @@ public class Step2 {
     public static class PartitionerClass2 extends Partitioner<Text, Text> {
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
-            return Math.abs(key.hashCode()) % numPartitions;
+            return Math.abs(key.toString().hashCode()) % numPartitions;
         }
     }
 
@@ -128,7 +128,7 @@ public class Step2 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "lamine-yamal"; // S3 bucket name
+        String bucketName = "teacherandrabi"; // S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

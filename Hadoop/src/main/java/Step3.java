@@ -150,13 +150,15 @@ public class Step3 {
     public static class PartitionerClass3 extends Partitioner<Text, Text> {
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
-            return Math.abs(key.hashCode()) % numPartitions;
+            return Math.abs(key.toString().hashCode()) % numPartitions;
         }
     }
 
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 3 started!");
         Configuration conf = new Configuration();
+        conf.set("mapreduce.reduce.memory.mb", "6144");  // Increase reducer memory
+        conf.set("mapreduce.reduce.java.opts", "-Xmx6g"); // Increase JVM heap
         Job job = Job.getInstance(conf, "Step3");
         job.setJarByClass(Step3.class);
         job.setMapperClass(MapperClass3.class);
@@ -167,7 +169,7 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "lamine-yamal"; // Your S3 bucket name
+        String bucketName = "teacherandrabi"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));

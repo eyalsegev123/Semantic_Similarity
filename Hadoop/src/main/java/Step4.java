@@ -5,6 +5,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.LinkedList;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -48,7 +49,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "lamine-yamal"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -210,39 +211,42 @@ public class Step4 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-            HashSet<Text> valuesSet = new HashSet<>();
-            for(Text value : valuesSet){
-                valuesSet.add(value);
-            }
-            String[] valuesString = new String[2];
-            int index = 0;
 
-            for(Text value : valuesSet) {
-                if(index >= 2)
-                    break;
-                valuesString[index] = value.toString();
-                index++;
+            HashSet<String> valuesSet = new HashSet<>();
+            for(Text value : values){
+                valuesSet.add(value.toString());
             }
 
-            if(index < 2 || valuesString[0] == null || valuesString[1] == null) {
-                context.write(new Text("[DEBUG] - exit in if") , new Text("pair: " + key.toString()+ " length: "+ index + " values: " + values.toString()));
-                return;
+            if(valuesSet.size() != 2) return;
+
+            //we want to get the two values and check that theyre not null
+            String valuesString[] = valuesSet.toArray(new String[2]); 
+            for(String value : valuesString) {
+                if(value == null) return;
             }
+
             int numberOfFeaturesInFirst = valuesString[0].split("\t").length; 
             int numberOfFeaturesInSecond =  valuesString[1].split("\t").length;
 
-            if(numberOfFeaturesInFirst == 0 && numberOfFeaturesInSecond == 0) return;
+            if(numberOfFeaturesInFirst == 0 || numberOfFeaturesInSecond == 0) return;
 
-            String[][] vectors = new String[2][Math.max(numberOfFeaturesInFirst , numberOfFeaturesInSecond)];
-            insertCommonAndNotCommonFeatures(vectors , valuesString);
+            LinkedList<String>[] vectors = new LinkedList[2];
+            vectors[0] = new LinkedList<>();
+            vectors[1] = new LinkedList<>();
+            insertCommonAndNotCommonFeatures(vectors, valuesString);
+
+            // Convert LinkedList to String array
+            String[][] vectors_array = new String[2][];
+            vectors_array[0] = vectors[0].toArray(new String[0]);
+            vectors_array[1] = vectors[1].toArray(new String[0]);
             
             //Here we get the distance between each l1 and l2 
-            double[] dist_by_method_9 = dist_by_method_9(vectors);
-            double[] dist_by_method_10 = dist_by_method_10(vectors);
-            double[] dist_by_method_11 = dist_by_method_11(vectors);
-            double[] dist_by_method_13 = dist_by_method_13(vectors);
-            double[] dist_by_method_15 = dist_by_method_15(vectors);
-            double[] dist_by_method_17 = dist_by_method_17(vectors);
+            double[] dist_by_method_9 = dist_by_method_9(vectors_array);
+            double[] dist_by_method_10 = dist_by_method_10(vectors_array);
+            double[] dist_by_method_11 = dist_by_method_11(vectors_array);
+            double[] dist_by_method_13 = dist_by_method_13(vectors_array);
+            double[] dist_by_method_15 = dist_by_method_15(vectors_array);
+            double[] dist_by_method_17 = dist_by_method_17(vectors_array);
 
             String final_24_vector = "";
             for(double dist : dist_by_method_9)
@@ -267,7 +271,7 @@ public class Step4 {
             
         }
 
-        protected void insertCommonAndNotCommonFeatures(String[][] vectors , String[] values) {
+        protected void insertCommonAndNotCommonFeatures(LinkedList<String>[] vectors , String[] values) {
             
             //we will start with the common features
             HashMap<String , String> featuresOfFirstWord = new HashMap<>();
@@ -275,6 +279,7 @@ public class Step4 {
             String[] word1_features_array = values[0].split("\t");
             String[] word2_features_array = values[1].split("\t");
 
+            //Extract the features of each word
             for(String feature : word1_features_array) {
                 String featureWordAndRelation = feature.split(" ")[0]; 
                 String featureMeasures = feature.split(" ")[1];
@@ -286,25 +291,26 @@ public class Step4 {
                 featuresOfSecondWord.put(featureWordAndRelation , featureMeasures);
             }
             
-            int indexToInsert = 0;
+            //Now we will insert the common features
             for (Map.Entry<String, String> entry : featuresOfFirstWord.entrySet()) {
                 if(featuresOfSecondWord.get(entry.getKey()) != null) {
-                    vectors[0][indexToInsert] = entry.getValue();
-                    vectors[1][indexToInsert] = featuresOfSecondWord.get(entry.getKey());
-                    featuresOfFirstWord.remove(entry.getKey());
-                    featuresOfSecondWord.remove(entry.getKey());
-                    indexToInsert++;
+                    vectors[0].add(entry.getValue());
+                    vectors[1].add(featuresOfSecondWord.get(entry.getKey()));
                 }
             }
+
+            //Now we will insert the NOT common features
             for (Map.Entry<String, String> entry : featuresOfFirstWord.entrySet()) {
-                    vectors[0][indexToInsert] = entry.getValue();
-                    vectors[1][indexToInsert] = "0/0/0/0";
-                    indexToInsert++;
+                if(featuresOfSecondWord.get(entry.getKey()) == null) {
+                    vectors[0].add(entry.getValue());
+                    vectors[1].add("0/0/0/0");
+                }
             }
             for (Map.Entry<String, String> entry : featuresOfSecondWord.entrySet()) {
-                    vectors[0][indexToInsert] = "0/0/0/0";
-                    vectors[1][indexToInsert] = entry.getValue();
-                    indexToInsert++;
+                if(featuresOfFirstWord.get(entry.getKey()) == null) {
+                    vectors[0].add("0/0/0/0");
+                    vectors[1].add(entry.getValue());
+                }
             }
         }
 
@@ -427,14 +433,14 @@ public class Step4 {
 
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
-            return Math.abs(key.hashCode()) % numPartitions;
+            return Math.abs(key.toString().hashCode()) % numPartitions;
         }
     }
 
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "lamine-yamal";
+        String bucketName = "teacherandrabi";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();
@@ -479,6 +485,10 @@ public class Step4 {
         br.close();
         in.close();
 
+        //Set the counters in the Hadoop environment
+        conf.setLong("countF", countF);
+        conf.setLong("countL", countL);
+
         Job job = Job.getInstance(conf, "Step4");
         job.setJarByClass(Step4.class);
         job.setMapperClass(MapperClass4.class);
@@ -488,18 +498,11 @@ public class Step4 {
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-
-        job.getConfiguration().setLong("countF", countF);
-        job.getConfiguration().setLong("countL", countL);
-
-        // For n_grams S3 files.
-        // Note: This is English version and you should change the path to the relevant
-        // one
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
+        
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step3"));
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step4"));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-
     }
 }

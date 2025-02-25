@@ -34,7 +34,7 @@ public class Step1 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "lamine-yamal"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {
@@ -75,11 +75,9 @@ public class Step1 {
             String headWordStemmed = stem(headWord);
             String nGram = fields[1];
 
-            if(!goldenWords.contains(headWordStemmed)) {
-                return;
-            }
+            if(!goldenWords.contains(headWordStemmed)) return;
 
-            String[] nGramArray = nGram.split("\\s+");
+            String[] nGramArray = nGram.split("\\s+"); //split by spaces the features
             if(nGramArray.length == 0) return;
             
 
@@ -114,7 +112,6 @@ public class Step1 {
             }
         }
 
-
         public String stem(String word) {
             Stemmer stemmer = new Stemmer();
             stemmer.add(word.toCharArray(), word.length()); // Add the full word
@@ -128,46 +125,46 @@ public class Step1 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context)
                 throws IOException, InterruptedException {
-                            
+       
             String featureKey = key.toString().trim();
-            String featureWord = featureKey.split("-")[0];
+
+            String featureWord = featureKey.split("-")[0].trim();
             long count_F_is_f = 0;
             
-            HashSet<Text> valuesSet = new HashSet<>();
-
+            HashSet<String> valuesSet = new HashSet<>();
             //Summing the count_F_is_f for the feature
             for(Text value : values) {
                 String stringValue = value.toString();
                 Long generalCount = Long.parseLong(stringValue.split("\t")[2]);
                 count_F_is_f += generalCount;
-                valuesSet.add(value);
+                valuesSet.add(value.toString());
             }
 
             //For each feature, we will turn the key-value back to how it used to be in the input, but with adding the count_F_is_f to the specific feature
-            for(Text value : valuesSet) {
-                String stringValue = value.toString();
-                String[] fields = stringValue.split("\t");
+            for(String value : valuesSet) {
+                String[] fields = value.split("\t");
                 String originalHeadWordOfFeature = fields[0];
                 String[] ngramArray = fields[1].split(" ");
                 String featureCount = fields[2];
                 String valueToWrite = "";
+                
                 for(String feature : ngramArray) {
                     String[] fieldsOfFeature = feature.split("/"); //Splitting the feature by "/"
-                    if(fieldsOfFeature[0].equals(featureWord))
+                    if(fieldsOfFeature[0].trim().equals(featureWord))
                         valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + "/" + count_F_is_f + " ";
                     else
                         valueToWrite += fieldsOfFeature[0] + "/" + fieldsOfFeature[2] + " ";        
                 }
                 valueToWrite = valueToWrite.substring(0, valueToWrite.length() - 1);
                 context.write(new Text(originalHeadWordOfFeature), new Text(valueToWrite + "\t" + featureCount));
-            }        
+            }       
         }
     }
 
     public static class PartitionerClass1 extends Partitioner<Text, Text> {
         @Override
         public int getPartition(Text key, Text value, int numPartitions) {
-            return Math.abs(key.hashCode()) % numPartitions;
+            return Math.abs(key.toString().hashCode()) % numPartitions;
         }
     }
 
@@ -184,10 +181,10 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "lamine-yamal"; // Your S3 bucket name
+        String bucketName = "teacherandrabi"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://lamine-yamal/biarcs10")); // Path to the input that come from Google N-Grams
+        TextInputFormat.addInputPath(job, new Path("s3://teacherandrabi/biarcs10")); // Path to the input that come from Google N-Grams
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);
