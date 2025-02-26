@@ -1,0 +1,12 @@
+based	both/DT/nsubjpass/3 often/RB/advmod/3 based/VBN/dep/0	12	1957,3	1967,3	1972,2	1985,3	2006,1
+based	both/DT/nsubjpass/3 only/RB/advmod/3 based/VBN/ROOT/0	11	1909,1	1911,3	1929,1	1967,1	1968,2	2003,1	2005,2
+car	both/DT/nsubjpass/3 originally/RB/advmod/3 car/VBN/ROOT/0	20	1903,3	1965,1	1969,2	1981,1	1985,1	1986,1	1991,1	1992,1	1993,1	1997,1	1998,1	2000,1	2003,1	2004,1	2005,2	2008,1
+car	both/DT/nsubjpass/3 originally/RB/advmod/3 car/VBN/advcl/0	13	1906,12	1998,1
+ferry	both/DT/nsubjpass/3 primarily/RB/advmod/3 ferry/VBN/ROOT/0	27	1902,1	1904,2	1910,1	1940,1	1952,3	1965,1	1968,1	1976,1	1986,1	1987,1	1988,1	1993,2	1995,1	1998,3	2001,1	2004,2	2007,4
+ferry	both/DT/nsubjpass/3 often/RB/advmod/3 ferry/VBN/dep/0	12	1957,3	1967,3	1972,2	1985,3	2006,1
+ferry	both/DT/nsubjpass/3 ferry/VBN/dep/0	12	1957,3	1967,3	1972,2	1985,3	2006,1
+boat	both/DT/nsubjpass/3 only/RB/advmod/3 boat/VBN/ROOT/0	11	1909,1	1911,3	1929,1	1967,1	1968,2	2003,1	2005,2
+boat	both/DT/nsubjpass/3 originally/RB/advmod/3 boat/VBN/ROOT/0	20	1903,3	1965,1	1969,2	1981,1	1985,1	1986,1	1991,1	1992,1	1993,1	1997,1	1998,1	2000,1	2003,1	2004,1	2005,2	2008,1
+boat	originally/RB/advmod/3 boat/VBN/ROOT/0	15	1903,3	1965,1	1969,2	1981,1	1985,1	1986,1	1991,1	1992,1	1993,1	1997,1	1998,1	2000,1	2003,1	2004,1	2005,2	2008,1
+yacht	both/DT/nsubjpass/3 originally/RB/advmod/3 yacht/VBN/advcl/0	13	1906,12	1998,1
+yacht	both/DT/nsubjpass/3 primarily/RB/advmod/3 yacht/VBN/ROOT/0	27	1902,1	1904,2	1910,1	1940,1	1952,3	1965,1	1968,1	1976,1	1986,1	1987,1	1988,1	1993,2	1995,1	1998,3	2001,1	2004,2	2007,4

@@ -21,9 +21,9 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
-    public static String bucketName = "teacherandrabi";
+    public static String bucketName = "lamine-yamal";
 
-    public static int numberOfInstances = 7;
+    public static int numberOfInstances = 10;
 
     public static void main(String[] args) {
         credentialsProvider = new ProfileCredentialsProvider();
@@ -93,18 +93,16 @@ public class App {
                 .withPlacement(new PlacementType("us-east-1a"));
 
         System.out.println("Set steps");
-        
-
 
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
-                        .withName("Map reduce project - biarcs 10")
-                        .withInstances(instances)
-                        .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
-                        .withLogUri("s3://" + bucketName + "/logs/")
-                        .withServiceRole("EMR_DefaultRole")
-                        .withJobFlowRole("EMR_EC2_DefaultRole")
-                        .withReleaseLabel("emr-5.11.0");
-                    
+                .withName("Map reduce project - biarcs 10")
+                .withInstances(instances)
+                .withSteps(stepConfig1, stepConfig2, stepConfig3, stepConfig4)
+                .withLogUri("s3://" + bucketName + "/logs/")
+                .withServiceRole("EMR_DefaultRole")
+                .withJobFlowRole("EMR_EC2_DefaultRole")
+                .withReleaseLabel("emr-5.11.0");
+
         RunJobFlowResult runJobFlowResult = emr.runJobFlow(runFlowRequest);
         String jobFlowId = runJobFlowResult.getJobFlowId();
         System.out.println("Ran job flow with id: " + jobFlowId);
