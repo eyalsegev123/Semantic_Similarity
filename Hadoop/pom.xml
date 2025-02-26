@@ -131,7 +131,7 @@
                     <archive>
                         <manifest>
                             <!-- Specify your main class here -->
-                            <mainClass>App</mainClass>
+                            <mainClass>Step4</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

@@ -21,9 +21,9 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
-    public static String bucketName = "lamine-yamal";
+    public static String bucketName = "teacherandrabi";
 
-    public static int numberOfInstances = 10;
+    public static int numberOfInstances = 7;
 
     public static void main(String[] args) {
         credentialsProvider = new ProfileCredentialsProvider();

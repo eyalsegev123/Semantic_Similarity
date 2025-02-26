@@ -34,7 +34,7 @@ public class Step1 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "lamine-yamal"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {
@@ -181,7 +181,7 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "lamine-yamal"; // Your S3 bucket name
+        String bucketName = "teacherandrabi"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://teacherandrabi/biarcs10")); // Path to the input that come from Google N-Grams
