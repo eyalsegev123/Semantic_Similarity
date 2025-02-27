@@ -128,7 +128,7 @@ public class Step2 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "teacherandrabi"; // S3 bucket name
+        String bucketName = "mori-verabi"; // S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
 

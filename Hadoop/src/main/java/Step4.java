@@ -51,7 +51,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "teacherandrabi"; // Your S3 bucket name
+            String bucketName = "mori-verabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
