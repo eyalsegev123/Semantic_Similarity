@@ -159,7 +159,7 @@ public class Step4 {
             }
 
             // now in featuresByMeasures we have every feature of word like this:
-            // key: feature-relation value: m5/m6/m7/m8 
+            // key: feature-relation value: m5/m6/m7/m8
             for (Map.Entry<String, String> entry : featuresByMeasures.entrySet()) {
                 valueToWrite += entry.getKey() + " " + entry.getValue() + "\t";
             }
@@ -281,6 +281,13 @@ public class Step4 {
             }
 
             context.write(key, new Text(final_24_vector));
+            // String  valueString = "";
+            // int countValues = 0; 
+            // for(Text value : values){
+            //     valueString += value.toString() + "\t";
+            //     countValues++;
+            // }
+            // context.write(new Text(key.toString() + " values: " + countValues), new Text(valueString));
 
         }
 
@@ -453,10 +460,14 @@ public class Step4 {
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "lamine-yamal";
+        String bucketName = "mori-verabi";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();
+        //timeout configuration 
+        conf.set("mapreduce.task.timeout", "14400000"); // 4 hours in milliseconds
+        conf.set("mapreduce.reduce.memory.mb", "6144");  // Increase reducer memory
+        conf.set("mapreduce.reduce.java.opts", "-Xmx6g"); // Increase JVM heap
 
         // Step 2: Retrieve the counter value from S3
         String counterF_FilePath = "s3://" + bucketName + "/counters/count_F.txt";
@@ -507,6 +518,7 @@ public class Step4 {
         job.setMapperClass(MapperClass4.class);
         job.setPartitionerClass(PartitionerClass4.class);
         job.setReducerClass(ReducerClass4.class);
+        job.setNumReduceTasks(9);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
