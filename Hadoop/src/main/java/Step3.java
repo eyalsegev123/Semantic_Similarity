@@ -105,8 +105,7 @@ public class Step3 {
                 count_L_is_l += generalCount;
             }
 
-            int count_hash_maps = 0;
-
+            int hashmap_size = 0;
             //Summing the appearences of some f with l from every sentence of l
             for(String value : valuesSet) {
                 String[] valueFields = value.split("\t");
@@ -117,23 +116,26 @@ public class Step3 {
                     
                     String[] featureFields = feature.split("/");
                     String featureWordWithRelation = featureFields[0];
-                    
-                    //Inserting every feature with its count F is f to hashMap
                     long count_F_is_f = Long.parseLong(featureFields[1]);
-                    featureToCount_F_is_f.put(featureWordWithRelation , count_F_is_f);
-                    
-                    //Inserting every feature into the featureToCount_f_with_l
-                    long current_count_f_with_l = featureToCount_f_with_l.getOrDefault(featureWordWithRelation, 0L);
-                    featureToCount_f_with_l.put(featureWordWithRelation, current_count_f_with_l + generalCount); 
-                    //context.write(new Text("[DEBUG]- f = " + featureWordWithRelation + " , l = " + headWord) ,
-                    //new Text("current (F is f) = " + featureToCount_F_is_f.get(featureWordWithRelation) + "current (f with l) = " + featureToCount_f_with_l.get(featureWordWithRelation)));
-
-                    count_hash_maps++;
-                    if(count_hash_maps >= 50)
-                        break;
+                    Long current_count_F_is_f = featureToCount_F_is_f.get(featureWordWithRelation);
+                    if(current_count_F_is_f == null && hashmap_size < 50) {
+                        //Inserting every feature with its count F is f to hashMap
+                        
+                        featureToCount_F_is_f.put(featureWordWithRelation , count_F_is_f);
+                        
+                        //Inserting every feature into the featureToCount_f_with_l
+                        featureToCount_f_with_l.put(featureWordWithRelation, generalCount); 
+                        hashmap_size++;
+                    }
+                    else {
+                        if(current_count_F_is_f != null) {
+                            featureToCount_F_is_f.put(featureWordWithRelation , count_F_is_f);
+                            Long current_count_f_with_l = featureToCount_f_with_l.get(featureWordWithRelation);
+                            featureToCount_f_with_l.put(featureWordWithRelation , current_count_f_with_l + generalCount);
+                        }
+                    }
                 }
-                if(count_hash_maps >= 50)
-                        break;
+                
             }
 
             String newValueToWrite = "";
@@ -180,7 +182,7 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "lamine-yamal"; // Your S3 bucket name
+        String bucketName = "lamine-yamal"; 
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));

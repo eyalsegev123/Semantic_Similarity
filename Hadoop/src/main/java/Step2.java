@@ -118,11 +118,16 @@ public class Step2 {
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 2 started!");
         Configuration conf = new Configuration();
+        //timeout configuration 
+        conf.set("mapreduce.task.timeout", "14400000"); // 4 hours in milliseconds
+        conf.set("mapreduce.reduce.memory.mb", "6144");  // Increase reducer memory
+        conf.set("mapreduce.reduce.java.opts", "-Xmx6g"); // Increase JVM heap
         Job job = Job.getInstance(conf, "Step2");
         job.setJarByClass(Step2.class);
         job.setMapperClass(MapperClass2.class);
         job.setPartitionerClass(PartitionerClass2.class);
         job.setReducerClass(ReducerClass2.class);
+        job.setNumReduceTasks(9);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);

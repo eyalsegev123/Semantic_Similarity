@@ -51,7 +51,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "lamine-yamal"; // Your S3 bucket name
+            String bucketName = "mori-verabi"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -172,7 +172,7 @@ public class Step4 {
         protected HashMap<String, Double> measures_by_method_5(HashMap<String, Double[]> featuresByCount) {
             HashMap<String, Double> measures_by_method_5 = new HashMap<>();
             for (Map.Entry<String, Double[]> entry : featuresByCount.entrySet()) {
-                measures_by_method_5.put(entry.getKey(), entry.getValue()[0]);
+                measures_by_method_5.put(entry.getKey(), entry.getValue()[0] );
             }
             return measures_by_method_5;
         }
@@ -253,30 +253,36 @@ public class Step4 {
             double[] dist_by_method_11 = dist_by_method_11(vectors_array);
             double[] dist_by_method_13 = dist_by_method_13(vectors_array);
             double[] dist_by_method_15 = dist_by_method_15(vectors_array);
-            double[] dist_by_method_17 = dist_by_method_17(vectors_array);
+            double[] dist_by_method_17 = dist_by_method_17(context , vectors_array);
 
             String final_24_vector = "";
             for (double dist : dist_by_method_9) {
+                dist = Math.round(dist * 10000.0) / 10000.0;
                 final_24_vector += dist + "/";
             }
 
             for (double dist : dist_by_method_10) {
+                dist = Math.round(dist * 10000.0) / 10000.0;
                 final_24_vector += dist + "/";
             }
 
             for (double dist : dist_by_method_11) {
+                dist = Math.round(dist * 10000.0) / 10000.0;
                 final_24_vector += dist + "/";
             }
 
             for (double dist : dist_by_method_13) {
+                dist = Math.round(dist * 10000.0) / 10000.0;
                 final_24_vector += dist + "/";
             }
 
             for (double dist : dist_by_method_15) {
+                dist = Math.round(dist * 10000.0) / 10000.0;
                 final_24_vector += dist + "/";
             }
 
             for (double dist : dist_by_method_17) {
+                dist = Math.round(dist * 10000.0) / 10000.0;
                 final_24_vector += dist + "/";
             }
 
@@ -413,11 +419,27 @@ public class Step4 {
             return ans;
         }
 
-        protected double[] dist_by_method_17(String[][] vectors) {
+        protected double[] dist_by_method_17(Context context , String[][] vectors) {
 
             String[] l1 = vectors[0];
             String[] l2 = vectors[1];
             Double[][] M = new Double[l1.length][4];
+
+            // DEBUG
+            String l1_str = "";
+            String l2_str = "";
+            for(String s : l1)
+                l1_str += s;
+            for(String s : l2)
+                l2_str += s;
+            try {
+                context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: l1- " + l1_str + " l2 -" + l2_str));
+            }
+            catch(Exception e) {
+                System.out.println("ahla");
+            }
+            //DEBUG
+            
 
             for (int j = 0; j < l1.length; j++) {
                 String[] l1Measures = l1[j].split("/");
@@ -432,6 +454,17 @@ public class Step4 {
             double[] ans = new double[4];
             for (int i = 0; i < ans.length; i++) {
                 ans[i] = (KL_divergence(l1, M, i) + KL_divergence(l2, M, i)) / 2;
+
+                // //DEBUG
+                // try {
+                //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: KL_div_l1: " + KL_divergence(l1, M, i)));
+                //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: KL_div_l2: " + KL_divergence(l2, M, i)));
+                //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: ans[" + i + "]: " + ans[i]));
+                // }
+                // catch(Exception e) {
+                //     System.out.println("ahla");
+                // }
+                
             }
 
             return ans;
@@ -442,6 +475,8 @@ public class Step4 {
             for (int i = 0; i < L.length; i++) {
                 double L_Coordinate = Double.parseDouble(L[i].split("/")[coordinate_index]);
                 double M_Coordinate = M[i][coordinate_index];
+                if(L_Coordinate == 0.0) L_Coordinate = 0.0001;
+                if(M_Coordinate == 0.0) M_Coordinate = 0.0001;
                 sum += L_Coordinate * ((Math.log(L_Coordinate / M_Coordinate)) / Math.log(2));
             }
             return sum;
@@ -460,7 +495,7 @@ public class Step4 {
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "lamine-yamal";
+        String bucketName = "mori-verabi";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();

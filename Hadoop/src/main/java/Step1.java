@@ -171,11 +171,16 @@ public class Step1 {
     public static void main(String[] args) throws Exception {
         System.out.println("[DEBUG] STEP 1 started!");
         Configuration conf = new Configuration();
+        //timeout configuration 
+        conf.set("mapreduce.task.timeout", "14400000"); // 4 hours in milliseconds
+        conf.set("mapreduce.reduce.memory.mb", "6144");  // Increase reducer memory
+        conf.set("mapreduce.reduce.java.opts", "-Xmx6g"); // Increase JVM heap
         Job job = Job.getInstance(conf, "Step1");
         job.setJarByClass(Step1.class);
         job.setMapperClass(MapperClass1.class);
         job.setPartitionerClass(PartitionerClass1.class);
         job.setReducerClass(ReducerClass1.class);
+        job.setNumReduceTasks(9);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
@@ -184,7 +189,7 @@ public class Step1 {
         String bucketName = "lamine-yamal"; 
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
-        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/biarcs")); // Path to the input that come from Google N-Grams
+        TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/biarcs10")); // Path to the input that come from Google N-Grams
         TextOutputFormat.setOutputPath(job, new Path("s3://" + bucketName + "/output/step1"));
         
         System.exit(job.waitForCompletion(true) ? 0 : 1);
