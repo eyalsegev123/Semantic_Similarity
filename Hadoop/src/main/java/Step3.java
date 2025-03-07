@@ -105,6 +105,8 @@ public class Step3 {
                 count_L_is_l += generalCount;
             }
 
+            int count_hash_maps = 0;
+
             //Summing the appearences of some f with l from every sentence of l
             for(String value : valuesSet) {
                 String[] valueFields = value.split("\t");
@@ -125,7 +127,13 @@ public class Step3 {
                     featureToCount_f_with_l.put(featureWordWithRelation, current_count_f_with_l + generalCount); 
                     //context.write(new Text("[DEBUG]- f = " + featureWordWithRelation + " , l = " + headWord) ,
                     //new Text("current (F is f) = " + featureToCount_F_is_f.get(featureWordWithRelation) + "current (f with l) = " + featureToCount_f_with_l.get(featureWordWithRelation)));
+
+                    count_hash_maps++;
+                    if(count_hash_maps >= 50)
+                        break;
                 }
+                if(count_hash_maps >= 50)
+                        break;
             }
 
             String newValueToWrite = "";
@@ -172,7 +180,7 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "mori-verabi"; // Your S3 bucket name
+        String bucketName = "lamine-yamal"; // Your S3 bucket name
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));

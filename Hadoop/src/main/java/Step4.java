@@ -51,7 +51,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "mori-verabi"; // Your S3 bucket name
+            String bucketName = "lamine-yamal"; // Your S3 bucket name
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -460,7 +460,7 @@ public class Step4 {
     public static void main(String[] args) throws Exception {
 
         System.out.println("[DEBUG] STEP 4 started!");
-        String bucketName = "mori-verabi";
+        String bucketName = "lamine-yamal";
 
         //Step 1: Initialize Configuration
         Configuration conf = new Configuration();

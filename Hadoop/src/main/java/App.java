@@ -21,7 +21,7 @@ public class App {
     public static AmazonS3 S3;
     public static AmazonEC2 ec2;
     public static AmazonElasticMapReduce emr;
-    public static String bucketName = "mori-verabi";
+    public static String bucketName = "lamine-yamal";
 
     public static int numberOfInstances = 7;
 
@@ -45,7 +45,7 @@ public class App {
 
         // Step 1
         HadoopJarStepConfig firstStep = new HadoopJarStepConfig()
-                .withJar("s3://" + bucketName + "/jars/Step1-biarcs10.jar")
+                .withJar("s3://" + bucketName + "/jars/Step1.jar")
                 .withMainClass("Step1");
 
         // Step 2
