@@ -182,7 +182,7 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
 
-        String bucketName = "lamine-yamal"; 
+        String bucketName = "teacherandrabi"; 
         job.setInputFormatClass(TextInputFormat.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         TextInputFormat.addInputPath(job, new Path("s3://" + bucketName + "/output/step2"));
