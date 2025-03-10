@@ -7,6 +7,8 @@ echo "===== Semantic Similarity Classification Pipeline ====="
 # Step 2: Compile Java code
 echo "Compiling Java code..."
 javac -cp ".:weka.jar" ConvertToARFF.java
+javac -source 8 -target 8 -cp ".:weka.jar" ConvertToARFF.java
+javac -source 8 -target 8 -cp ".:weka.jar" WekaClassification.java
 javac -cp ".:weka.jar" WekaClassification.java
 javac -cp ".:weka.jar" FeatureAnalysis.java
 

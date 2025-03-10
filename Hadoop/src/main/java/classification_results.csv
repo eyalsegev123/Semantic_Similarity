@@ -1,5 +1,5 @@
 Classifier,Precision,Recall,F1-Score
-Decision Tree (J48),NaN,0.0000,NaN
-Random Forest,NaN,0.0000,NaN
+Decision Tree (J48),0.6667,0.2857,0.4000
+Random Forest,0.7500,0.1429,0.2400
 Support Vector Machine (SMO),NaN,0.0000,NaN
-K-Nearest Neighbors (IBk),0.0769,0.0909,0.0833
+K-Nearest Neighbors (IBk),0.3810,0.3810,0.3810
