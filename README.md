@@ -44,25 +44,25 @@ mvn exec:java "-Dexec.mainClass=App"
 ### Step 1: Count(F is f) Calculation
 - **Mapper**: Emits (feature, headword) pairs with feature counts from n-grams
 - **Reducer**: Calculates total feature occurrences (count(F,f)) across corpus
-- **Output Format**: headword → feature with count_F_is_f, feature count
-- **Partitioner**: Ensures even distribution of data across reducers
+- **Output Format**: headword → one feature with count_F_is_f, general count
+- **Partitioner**: Partitions according to the feature (the key)
 
 ### Step 2: Reorganizing the list of features for the headwords
 - **Mapper**: Associates features with sentences, using (headword + sentence) as key
 - **Reducer**: Reorganizes features with their count_F_is_f values
-- **Output Format**: headword → features with count_F_is_f and feature counts
-- **Partitioner**: Distributes workload based on word occurrences
+- **Output Format**: headword → all features with count_F_is_f and feature counts
+- **Partitioner**: Partitions according to the headword + sentence (the key)
 
 ### Step 3: Count(f,l), Count(F), Count(L) Calculation
 - **Mapper**: Computes count_F (total features) and count_L (total words)
 - **Reducer**: Calculates count_f_with_l (feature-word co-occurrences)
 - **Output Format**: headword → features with count_f_with_l and count_F_is_f
-- **Partitioner**: Balances vector computation load
+- **Partitioner**: Partitions according to the headword (the key) 
 
 ### Step 4: Measuring and Distances calculation
-- **Mapper**: Normalizes vectors
-- **Reducer**: Produces final semantic similarity scores
-- **Partitioner**: Ensures efficient final processing
+- **Mapper**: Filters vectors for relevant headword pairs, calculates features using four methods, and emits ordered pairs with computed vectors.
+- **Reducer**: Calculates distances for each headword pair using six methods, emitting a 24-value vector per pair.
+- **Partitioner**: Partitions according to the pair of words (the key) 
 
 ## System Requirements
 
