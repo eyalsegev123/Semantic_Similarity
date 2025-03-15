@@ -39,10 +39,22 @@ command:
 mvn exec:java "-Dexec.mainClass=App"
 ```
 
+### 4. Classification and Evaluation:**
+
+Make sure to set the right path: hadoop/Semantic_Similarity/Hadoop/src/main/java and then
+
+Convert the output from the EMR Job Flow to ARFF format:
+Compile: javac -cp ".:weka.jar" ConvertToARFF.java
+Run: java -cp ".:weka.jar" ConvertToARFF
+
+Classification and Evaluation:
+Compile: javac -cp ".:weka.jar" WekaClassification.java
+Run: java -cp ".:weka.jar" WekaClassification
+
 ## Project Description
 
 ### Step 1: Count(F is f) Calculation
-- **Mapper**: Emits (feature, headword) pairs with feature counts from n-grams
+- **Mapper**: Emits (feature, headword) pairs with feature counts from n-grams. In this Step we assure that the headwords we are analyzing are only headwords in the golden-standard dataset.
 - **Reducer**: Calculates total feature occurrences (count(F,f)) across corpus
 - **Output Format**: headword → one feature with count_F_is_f, general count
 - **Partitioner**: Partitions according to the feature (the key)
