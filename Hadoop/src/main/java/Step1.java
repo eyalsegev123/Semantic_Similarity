@@ -28,13 +28,12 @@ public class Step1 {
         private HashSet<String> goldenWords = new HashSet<>(); //Stemmed golden words
 
         protected void setup(Context context) throws IOException, InterruptedException {
-            // Configure AWS client using instance profile credentials (recommended when
-            // running on AWS infrastructure)
+            // Configure AWS client using instance profile credentials 
             AmazonS3 s3Client = AmazonS3ClientBuilder.standard()
-                    .withRegion("us-east-1") // Specify your bucket region
+                    .withRegion("us-east-1") 
                     .build();
 
-            String bucketName = "teacherandrabi"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; 
             String key = "word-relatedness.txt"; // S3 object key for the word-relatedness file
 
             try {

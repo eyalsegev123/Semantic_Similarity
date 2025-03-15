@@ -50,7 +50,7 @@ public class Step4 {
                     .withRegion("us-east-1") // Specify your bucket region
                     .build();
 
-            String bucketName = "teacherandrabi"; // Your S3 bucket name
+            String bucketName = "teacherandrabi"; 
             String key = "word-relatedness.txt"; // S3 object key for the stopwords file
 
             try {
@@ -286,13 +286,6 @@ public class Step4 {
             }
 
             context.write(key, new Text(final_24_vector));
-            // String  valueString = "";
-            // int countValues = 0; 
-            // for(Text value : values){
-            //     valueString += value.toString() + "\t";
-            //     countValues++;
-            // }
-            // context.write(new Text(key.toString() + " values: " + countValues), new Text(valueString));
 
         }
 
@@ -424,22 +417,6 @@ public class Step4 {
             String[] l2 = vectors[1];
             Double[][] M = new Double[l1.length][4];
 
-            // DEBUG
-            // String l1_str = "";
-            // String l2_str = "";
-            // for(String s : l1)
-            //     l1_str += s;
-            // for(String s : l2)
-            //     l2_str += s;
-            // try {
-            //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: l1- " + l1_str + " l2 -" + l2_str));
-            // }
-            // catch(Exception e) {
-            //     System.out.println("ahla");
-            // }
-            //DEBUG
-            
-
             for (int j = 0; j < l1.length; j++) {
                 String[] l1Measures = l1[j].split("/");
                 String[] l2Measures = l2[j].split("/");
@@ -452,18 +429,7 @@ public class Step4 {
 
             double[] ans = new double[4];
             for (int i = 0; i < ans.length; i++) {
-                ans[i] = (KL_divergence(l1, M, i) + KL_divergence(l2, M, i)) / 2;
-
-                // //DEBUG
-                // try {
-                //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: KL_div_l1: " + KL_divergence(l1, M, i)));
-                //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: KL_div_l2: " + KL_divergence(l2, M, i)));
-                //     context.write(new Text("[DEBUG] - ") , new Text("DIST BY 17: ans[" + i + "]: " + ans[i]));
-                // }
-                // catch(Exception e) {
-                //     System.out.println("ahla");
-                // }
-                
+                ans[i] = (KL_divergence(l1, M, i) + KL_divergence(l2, M, i)) / 2;                
             }
 
             return ans;
